@@ -1,14 +1,17 @@
 
 # Formation OpenID
 Le but est de mettre en place:
-- deux front-ends distincts (une **S**ingle **P**age **A**pplication `Next.js` et une application mobile `React Native`)
-- deux APIs REST Spring distinctes
+- trois front-ends distincts 
+  * une application `React Native` nommée `mobile-front-office` et acceptant des identitées Auth0
+  * une **S**ingle **P**age **A**pplication `Next.js` nommée `web-back-office` et acceptant des identitées Keycloak
+  * une SPA `Next.js` nommée `web-front-office` et acceptant des identitées Auth0
+- deux APIs REST Spring distinctes: `greetings-api` et `users-api`
 - deux OpenID Providers: Auth0 et Keycloak
 
 ## 1. Backend Spring Boot
-Projet Maven comprenant des modules d'API REST configurés en tant que resource server OAuth2 et de **B**ackends **F**or **F**rontends faisant l'interface entre ces resource server et les front-ends qui feraient pas des client OAuth2 sûrs (SPA et application mobile).
+Projet Maven comprenant des modules d'API REST configurés en tant que resource server OAuth2 et un **B**ackends **F**or **F**rontend faisant l'interface entre ces resource server et les front-ends qui, étant des SPAs ou une application mobile, ne feraient pas des client OAuth2 sûrs.
 
-Nous pour la configuration OpenID, nous utiliserons les starters Spring Boot de [spring-addons](https://github.com/ch4mpy/spring-addons) qui poussent un peu plus loin l'auto-configuration de `spring-boot-starter-oauth2-client` et `spring-boot-starter-oauth2-resource-server`. Pour n'utiliser que ces derniers (et écrire manuellement la conf générée par spring-addons), se référer [aux tutoriels](https://github.com/ch4mpy/spring-addons/tree/master/samples/tutorials) du même dépôt Github.
+Pour la configuration OpenID, nous utiliserons les starters Spring Boot de [spring-addons](https://github.com/ch4mpy/spring-addons) qui poussent un peu plus loin l'auto-configuration de `spring-boot-starter-oauth2-client` et `spring-boot-starter-oauth2-resource-server`. Pour n'utiliser que ces derniers (et écrire manuellement la conf générée par spring-addons), se référer [aux tutoriels](https://github.com/ch4mpy/spring-addons/tree/master/samples/tutorials) du même dépôt Github.
 
 ### 1.1. Resource Servers
 Nous exposerons deux APIs REST distinctes :
@@ -31,13 +34,8 @@ Cette API a pour but de retourner les roles d'un utilisateur donné. Voici les f
 ### 1.2. BFFs
 Les Backends For Frontends sont des middlewares sur le serveur configurés comme clients OAuth2 et faisant le pont entre une sécurité basée sur des sessions (côté externe) et une basée sur des "access tokens" OAuth2.
 
-Nous utiliserons des instances de `spring-cloud-gateway` avec le filtre `TokenRelay` et un starter Spring Boot pour la configuration OAuth2 "cliente".
+Nous utiliserons `spring-cloud-gateway` avec le filtre `TokenRelay` et un starter Spring Boot pour la configuration OAuth2 "cliente". La même application Spring Boot sera instanciée trois fois avec des configurations légèrement différentes (une instance par front-end).
 
-#### 1.2.1. BFF Web Back-Office
-
-#### 1.2.2. BFF Web Front-Office
-
-#### 1.2.3. BFF Mobile Front-Office
 Se rendre sur https://start.spring.io pour générer un projet Maven / Java avec Spring Boot 3.1 et les dépendances suivantes
 - Gateway
 - Lombok
@@ -48,19 +46,32 @@ Se rendre sur https://start.spring.io pour générer un projet Maven / Java avec
 
 Une fois le projet dézippé, l'ajouter en tant que module du `backend` (le placer dans le répertoire `backend`, changer le parent et supprimer les ressources liées au Maven wrapper et à Git)
 
-Ajouter une dépendance à [`com.c4-soft.springaddons:spring-addons-webflux-client`](https://central.sonatype.com/artifact/com.c4-soft.springaddons/spring-addons-webflux-client/6.1.11) (le version est managée par le parent).
+Ajouter des dépendances à :
+- `com.c4-soft.springaddons:spring-addons-webflux-client`
+- `com.c4-soft.springaddons:spring-addons-webflux-ressource-server`
 
 S'inspirer des deux autres modules BFF pour la configuration.
 
+### 1.3. Génération des Specs OpenAPI
+`mvn install -Popenapi`
+
 ## 2. Front-Ends
 
-### 2.1. SPA Next.js
+### 2.1. SPAs Next.js
 
 ### 2.1.1. SPA Next.js Back-Office
-- `npx create-next-app@latest` 
+- `npx create-next-app@latest` avec `web-back-office` comme nom d'application
+- `cd web-back-office`
+- `npm i -D @openapitools/openapi-generator-cli`
+- ajouter les scripts npm suivant au package.json: 
+    * `"generate:bff-api": "npx openapi-generator-cli generate -i ../bff.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/bff-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/bff-api"`
+    * `"generate:greetings-api": "npx openapi-generator-cli generate -i ../greetings-api.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/greetings-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/greetings-api"`
+    * `"generate:users-api": "npx openapi-generator-cli generate -i ../users-api.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/users-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/users-api"`
+    * `"postinstall": "npm run generate:bff-api && npm run generate:greetings-api && npm run generate:users-api"`
+- `npm i`
 
 ### 2.1.2. SPA Next.js Front-Office
-- `npx create-next-app@latest`
+- reproduire l'initialisation de l'application précédente pour le `web-front-office` (création du projet et génération des libs clientes d'APIs)
 
 ### 2.2. Application Mobile React Native
 

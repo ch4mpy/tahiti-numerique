@@ -8,22 +8,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.core.oidc.StandardClaimNames;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 
 import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenId;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
-import com.c4_soft.springaddons.security.oauth2.test.mockmvc.AddonsWebmvcTestConf;
 import com.c4_soft.springaddons.security.oauth2.test.mockmvc.MockMvcSupport;
+import com.c4_soft.springaddons.security.oauth2.test.webmvc.jwt.AutoConfigureAddonsWebSecurity;
 import com.c4soft.openidtraining.greetingsapi.GreetingsController.GreetingDto;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ImportAutoConfiguration({ AddonsWebmvcTestConf.class })
-class GreetingsApiApplicationTests {
+@WebMvcTest(controllers = GreetingsController.class)
+@AutoConfigureAddonsWebSecurity
+@Import(SecurityConfig.class)
+class GreetingsControllerTest {
 	
 	@Autowired
 	MockMvcSupport api;

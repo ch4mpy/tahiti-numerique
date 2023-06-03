@@ -29,12 +29,11 @@
 		<integration-tests.hostname>localhost</integration-tests.hostname>
 		<integration-tests.port>8080</integration-tests.port>
 		<ca-certificates.binding>${project.basedir}/bindings/ca-certificates</ca-certificates.binding>
+		<springdoc-openapi.output-dir>${project.basedir}/../../</springdoc-openapi.output-dir>
 	</properties>
 
 	<modules>
-		<module>bff-mobile-front-office</module>
-		<module>bff-web-back-office</module>
-		<module>bff-web-front-office</module>
+		<module>bff</module>
 		<module>greetings-api</module>
 		<module>users-api</module>
 	</modules>

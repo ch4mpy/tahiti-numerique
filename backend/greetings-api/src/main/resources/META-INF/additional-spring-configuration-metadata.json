@@ -1,0 +1,12 @@
+{"properties": [
+  {
+    "name": "origins",
+    "type": "java.lang.String[]",
+    "description": "Allowed origins for CORS requests"
+  },
+  {
+    "name": "issuer",
+    "type": "java.net.URI",
+    "description": "OpenID issuer URI"
+  }
+]}
