@@ -31,7 +31,7 @@ public class UsersApiApplication {
 	    }
 	    
 	    public static class InitialUserRoles {
-	    	public static final UserRoles CH4MP = new UserRoles("ch4mp@c4-soft.com", Set.of("roles:read", "roles:write"));
+	    	public static final UserRoles CH4MP = new UserRoles("ch4mp@c4-soft.com", Set.of("USER_ROLES_EDITOR"));
 	    	public static final UserRoles JWACONGNE = new UserRoles("jwacongne@c4-soft.com", Set.of("NICE", "AUTHOR"));
 	    }
 	}

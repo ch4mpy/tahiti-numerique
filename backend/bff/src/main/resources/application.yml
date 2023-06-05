@@ -6,7 +6,12 @@ oauth2-client-secret: change-me
 gateway-uri: ${scheme}://localhost:${server.port}
 greetings-api-uri: ${scheme}://localhost:8084
 users-api-uri: ${scheme}://localhost:8085
-ui-uri: ${scheme}://localhost:3000
+ui-uri: http://localhost:3000
+allowed-origins:
+- http://localhost:3002
+- http://localhost:3003
+- https://localhost:3402
+- https://localhost:3403
 
 server:
   port: 8080
@@ -33,7 +38,11 @@ spring:
             client-id: ${oauth2-client-id}
             client-secret: ${oauth2-client-secret}
             provider: oauth2
-            scope: openid,profile,email,offline_access
+            scope:
+            - openid
+            - profile
+            - email
+            - offline_access
   cloud:
     gateway:
       default-filters:
@@ -49,6 +58,7 @@ spring:
         uri: ${ui-uri}
         predicates:
         - Path=/ui/**
+        filters:
       - id: greetings-api
         uri: ${greetings-api-uri}
         predicates:
@@ -80,7 +90,8 @@ com:
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
           - path: $['https://c4-soft.com/user']['roles']
-          - path: $.permissions
+          - path: $.scope
+            prefix: SCOPE_
         # OAuth2 client configuration
         client:
           client-uri: ${gateway-uri}
@@ -89,13 +100,17 @@ com:
           - /oauth2/**
           - /
           - /logout
+          - /api/**
+          - /ui/**
           permit-all:
           - /login/**
           - /oauth2/**
           - /
+          - /api/**
+          - /ui/**
           csrf: cookie-accessible-from-js
-          post-login-redirect-path: ${ui-uri}
-          post-logout-redirect-path: ${ui-uri}
+          post-login-redirect-path: /ui/
+          post-logout-redirect-path: /ui/
           back-channel-logout-enabled: true
           oauth2-logout:
           - client-registration-id: authorization-code
@@ -105,9 +120,10 @@ com:
         # OAuth2 resource server configuration
         csrf: disable
         statless-sessions: true
+        cors:
+        - path: /api/**
+          allowed-origins: ${allowed-origins}
         permit-all:
-        - /api/**
-        - /ui/**
         - /v3/api-docs/**
         - /actuator/health/readiness
         - /actuator/health/liveness

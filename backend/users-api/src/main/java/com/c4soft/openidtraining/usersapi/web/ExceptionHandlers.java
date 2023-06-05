@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 
 @ControllerAdvice
@@ -16,6 +17,11 @@ public class ExceptionHandlers {
 	@ExceptionHandler(ConstraintViolationException.class)
 	public List<String> handleConstraintViolation(ConstraintViolationException ex) {
 		return ex.getConstraintViolations().stream().map(cv -> "%s: %s".formatted(cv.getPropertyPath(), cv.getMessage())).toList();
+	}
+	
+	@ResponseStatus(HttpStatus.NOT_FOUND)
+	@ExceptionHandler(EntityNotFoundException.class)
+	public void handleEntityNotFoundException(EntityNotFoundException ex) {
 	}
 
 }

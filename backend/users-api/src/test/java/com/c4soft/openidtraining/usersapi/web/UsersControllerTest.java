@@ -18,20 +18,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.core.oidc.StandardClaimNames;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 
+import com.c4_soft.springaddons.security.oauth2.test.annotations.Claims;
+import com.c4_soft.springaddons.security.oauth2.test.annotations.NestedClaims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenId;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
+import com.c4_soft.springaddons.security.oauth2.test.annotations.StringClaim;
 import com.c4_soft.springaddons.security.oauth2.test.mockmvc.MockMvcSupport;
-import com.c4_soft.springaddons.security.oauth2.test.webmvc.jwt.AutoConfigureAddonsWebSecurity;
-import com.c4soft.openidtraining.usersapi.SecurityConfig;
+import com.c4soft.openidtraining.usersapi.EnableSpringDataWebSupportTestConf;
+import com.c4soft.openidtraining.usersapi.SecuredTest;
 import com.c4soft.openidtraining.usersapi.domain.UserRoles;
 import com.c4soft.openidtraining.usersapi.domain.UserRolesRepository;
 
 @WebMvcTest(controllers = UsersController.class)
-@AutoConfigureAddonsWebSecurity
-@Import(SecurityConfig.class)
+@SecuredTest
+@Import(EnableSpringDataWebSupportTestConf.class)
 class UsersControllerTest {
 
 	@MockBean
@@ -53,8 +55,8 @@ class UsersControllerTest {
 	}
 
 	@Test
-	@OpenId("roles:read")
-	void givenUserIsGrantedWithRolesRead_whenGetUserRoles_thenRolesAreReturned() throws Exception {
+	@OpenId("SCOPE_roles:read")
+	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfExistingUser_thenRolesAreReturned() throws Exception {
 		// @formatter:off
 		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
 			.andExpect(status().isOk())
@@ -63,8 +65,24 @@ class UsersControllerTest {
 	}
 
 	@Test
-	@OpenId("roles:write")
-	void givenUserIsNotGrantedWithRolesRead_whenGetUserRoles_thenForbidden() throws Exception {
+	@OpenId("USER_ROLES_EDITOR")
+	void givenUserIsGrantedWithUserRolesEditor_whenGetUserRolesOfExistingUser_thenRolesAreReturned() throws Exception {
+		// @formatter:off
+		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[*]", containsInAnyOrder(UserRolesFixtures.CH4MP.getRoles().toArray())));
+		// @formatter:on
+	}
+
+	@Test
+	@OpenId("SCOPE_roles:read")
+	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfUnknownUser_thenNotFound() throws Exception {
+		api.get("/users/%s/roles".formatted("machin@truc")).andExpect(status().isNotFound());
+	}
+
+	@Test
+	@OpenId("SCOPE_roles:write")
+	void givenUserIsNotGrantedWithRolesReadScope_whenGetUserRoles_thenForbidden() throws Exception {
 		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail())).andExpect(status().isForbidden());
 	}
 
@@ -75,36 +93,36 @@ class UsersControllerTest {
 	}
 
 	@Test
-	@OpenId("roles:write")
-	void givenUserIsGrantedWithRolesWrite_whenSetUserRoles_thenRolesAreUpdated() throws Exception {
+	@OpenId("USER_ROLES_EDITOR")
+	void givenUserIsGrantedWithUserRolesEditor_whenSetUserRoles_thenRolesAreUpdated() throws Exception {
 		api.put(List.of("MACHIN", "TRUC"), "/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
 				.andExpect(status().isAccepted());
 		verify(rolesRepo).save(new UserRoles(UserRolesFixtures.CH4MP.getEmail(), Set.of("MACHIN", "TRUC")));
 	}
 
 	@Test
-	@OpenId("roles:read")
-	void givenUserIsNotGrantedWithRolesRead_whenSetUserRoles_thenForbidden() throws Exception {
+	@OpenId("SCOPE_roles:read")
+	void givenUserIsNotGrantedWithRolesReadScope_whenSetUserRoles_thenForbidden() throws Exception {
 		api.put(List.of("MACHIN", "TRUC"), "/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
 				.andExpect(status().isForbidden());
 	}
 
 	@Test
-	@OpenId("roles:write")
-	void givenUserIsGrantedWithRolesWrite_whenSetNullRoles_thenBadRequest() throws Exception {
+	@OpenId("USER_ROLES_EDITOR")
+	void givenUserIsGrantedWithUserRolesEditor_whenSetNullRoles_thenBadRequest() throws Exception {
 		api.put(null, "/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
 				.andExpect(status().isBadRequest());
 	}
 
 	@Test
-	@OpenId("roles:write")
-	void givenUserIsGrantedWithRolesWrite_whenSetRolesWithNullOrEmptyEmail_thenNotFound() throws Exception {
+	@OpenId("USER_ROLES_EDITOR")
+	void givenUserIsGrantedWithUserRolesEditor_whenSetRolesWithNullOrEmptyEmail_thenNotFound() throws Exception {
 		api.put(List.of("MACHIN", "TRUC"), "/users//roles").andExpect(status().isNotFound());
 	}
 
 	@Test
-	@OpenId("roles:write")
-	void givenUserIsGrantedWithRolesWrite_whenSetRolesWithInvalidEmail_thenBadRequest() throws Exception {
+	@OpenId("USER_ROLES_EDITOR")
+	void givenUserIsGrantedWithUserRolesEditor_whenSetRolesWithInvalidEmail_thenBadRequest() throws Exception {
 		api.put(List.of("MACHIN", "TRUC"), "/users/ch4mp/roles").andExpect(status().is4xxClientError());
 	}
 
@@ -122,16 +140,16 @@ class UsersControllerTest {
 
 	// @formatter:off
 	@Test
-	@OpenId(
-			authorities = { "MACHIN","TRUC" },
+	@OpenId(authorities = { "MACHIN","TRUC" },
 			claims = @OpenIdClaims(
-					usernameClaim = StandardClaimNames.PREFERRED_USERNAME,
-					preferredUsername = "Ch4mp",
-					email = "ch4mp@c4-soft.com"))
+				otherClaims = @Claims(
+					nestedClaims = @NestedClaims(name = "https://c4-soft.com/user", stringClaims = {
+						@StringClaim(name = "name", value = "ch4mpy"),
+						@StringClaim(name = "email", value = "ch4mp@c4-soft.com")}))))
 	void givenRequestIsAuthenticated_whenGetMe_thenReturnData() throws Exception {
 		api.get("/users/me")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.name", is("Ch4mp")))
+			.andExpect(jsonPath("$.name", is("ch4mpy")))
 			.andExpect(jsonPath("$.email", is("ch4mp@c4-soft.com")))
 			.andExpect(jsonPath("$.roles", containsInAnyOrder("MACHIN", "TRUC")));
 	}

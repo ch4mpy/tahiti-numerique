@@ -25,7 +25,7 @@ class UsersApiApplicationTests {
 	MockMvcSupport api;
 
 	@Test
-	@OpenId({"roles:read", "roles:write" })
+	@OpenId({"USER_ROLES_EDITOR" })
 	void givenUserIsGrantedWithRequiredRoles_whenSetCh4mpRoles_thenRolesAreUpdated() throws Exception {
 		final var ch4mp = UserDorlesDatabaseInitilizer.InitialUserRoles.CH4MP;
 		

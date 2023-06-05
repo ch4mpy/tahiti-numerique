@@ -1,5 +1,9 @@
-origins: http://localhost:3000
 issuer: https://dev-ch4mpy.eu.auth0.com/
+allowed-origins:
+- http://localhost:3002
+- http://localhost:3003
+- https://localhost:3402
+- https://localhost:3403
 
 server:
   port: 8080
@@ -22,8 +26,8 @@ com:
     springaddons:
       security:
         cors:
-        - path: /**
-          allowed-origins: ${origins}
+        - path: /greetings/**
+          allowed-origins: ${allowed-origins}
         issuers:
         - location: ${issuer}
           username-claim: $['https://c4-soft.com/user']['name']

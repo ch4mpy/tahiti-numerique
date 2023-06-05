@@ -38,5 +38,10 @@
     "name": "ui-uri",
     "type": "java.lang.String",
     "description": "Internal base URI serving the UI"
+  },
+  {
+    "name": "allowed-origins",
+    "type": "java.lang.String[]",
+    "description": "Allowed origins for CORS requests"
   }
 ]}

@@ -1,6 +1,6 @@
 {"properties": [
   {
-    "name": "origins",
+    "name": "allowed-origins",
     "type": "java.lang.String[]",
     "description": "Allowed origins for CORS requests"
   },
