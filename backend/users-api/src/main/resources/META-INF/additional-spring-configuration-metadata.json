@@ -1,6 +1,6 @@
 {"properties": [
   {
-    "name": "issuer",
+    "name": "oauth2-issuer",
     "type": "java.net.URI",
     "description": "OpenID issuer URI"
   },

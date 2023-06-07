@@ -1,4 +1,4 @@
-issuer: https://dev-ch4mpy.eu.auth0.com/
+oauth2-issuer: https://dev-ch4mpy.eu.auth0.com/
 allowed-origins:
 - http://localhost:3002
 - http://localhost:3003
@@ -29,7 +29,7 @@ com:
         - path: /greetings/**
           allowed-origins: ${allowed-origins}
         issuers:
-        - location: ${issuer}
+        - location: ${oauth2-issuer}
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
           - path: $['https://c4-soft.com/user']['roles']

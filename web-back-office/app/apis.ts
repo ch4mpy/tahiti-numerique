@@ -8,7 +8,7 @@ const bffApiConf = new BFFConfiguration({
   basePath: process.env.NEXT_PUBLIC_BFF_BASE_PATH,
 });
 const usersApiConf = new UsersConfiguration({
-  basePath: process.env.NEXT_PUBLIC_BFF_BASE_PATH + "/api/v1",
+  basePath: process.env.NEXT_PUBLIC_BFF_BASE_PATH + "/bff/v1",
 });
 
 export class APIs {

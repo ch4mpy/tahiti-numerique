@@ -2,13 +2,24 @@
 # Formation OpenID
 Le but est de mettre en place:
 - trois front-ends distincts 
-  * une application `React Native` nommée `mobile-front-office` et acceptant des identitées Auth0
+  * une application `React Native` (Android) nommée `mobile-front-office` et acceptant des identitées Auth0
   * une **S**ingle **P**age **A**pplication `Next.js` nommée `web-back-office` et acceptant des identitées Keycloak
   * une SPA `Next.js` nommée `web-front-office` et acceptant des identitées Auth0
 - deux APIs REST Spring distinctes: `greetings-api` et `users-api`
 - deux OpenID Providers: Auth0 et Keycloak
 
 Les roles des utilisateurs seront gérés par la `users-api` (pas par Auth0 ou Keycloak). Avant d'émettre un access token, Auth0 interrogera la `users-api` pour récupérer les roles d'un utilisateur et les insérer dans les private-claims.
+
+Voici les URLs de "prod" :
+- https://openid-training.c4-soft.com/front-office/web : application Next.js "front-office"
+- https://openid-training.c4-soft.com/front-office/mobile/app utilisée comme deep-link Android (pourrait aussi être utilisé comme universal-link iOS en y hébergeant un fichier `apple-app-site-association`)
+- https://openid-training.c4-soft.com/back-office/web : application Next.js "front-office"
+- https://openid-training.c4-soft.com/bff/v1/greetings : accès à l'API `greetings` pour les frontends web & mobile (requêtes avec session)
+- https://openid-training.c4-soft.com/bff/v1/users : accès à l'API `users` pour les frontends web & mobile (requêtes avec session)
+- https://openid-training.c4-soft.com/api/v1/greetings : accès à l'API `greetings` pour les clients OAuth2 (requêtes avec access token)
+- https://openid-training.c4-soft.com/api/v1/users : accès à l'API `users` pour les clients OAuth2 (requêtes avec access token)
+- https://openid-training.c4-soft.com/login/options : endpoint exposant les URIs possibles pour initier l'authenticafication d'un utilisateur
+- https://openid-training.c4-soft.com/logout : endpoint pour terminer une session utilisateur
 
 ## 1. Backend Spring Boot
 Projet Maven comprenant des modules d'API REST configurés en tant que resource server OAuth2 et un **B**ackends **F**or **F**rontend faisant l'interface entre ces resource server et les front-ends qui, étant des SPAs ou une application mobile, ne seraient pas des client OAuth2 fiables.
@@ -17,24 +28,33 @@ Pour la configuration OpenID, nous utiliserons les starters Spring Boot de [spri
 
 ### 1.1. Resource Servers
 Nous exposerons deux APIs REST distinctes :
-- `users-api` : limitée à l'exposition des roles d'un utilisateur dans le cadre de la formation
-- `greetings-api` : retourne un message personnalisé avec des éléments de l'identité associée à la requête
+- `users-api` : limitée à la l'exposition et la mise à jour des roles d'un utilisateur
+- `greetings-api` : retourne un message personnalisé avec des éléments de l'identité associée à la requête (access token JWT)
 
 #### 1.1.1. Greetings API
-Cette API construit un message à partir d'informations contenues dans l'`Authentication` (`JwtAuthenticationToken` par défaut pour les resource servers). Une première implémentation est fournie, le TP porte sur l'écriture des tests unitaires et la personnalisation du type d'`Authentication` utilisé.
+Cette API construit un message à partir d'informations contenues dans le `SecurityContext`. Une première implémentation est fournie, le TP porte sur l'écriture des tests unitaires et la personnalisation du type d'`Authentication` utilisé.
 - compléter les tests unitaires en utilisant soit `@WithMockJwt`, soit `SecurityMockMvcRequestPostProcessors.jwt()` pour insérer et configurer un `JwtAuthenticationToken` dans le `TestSecurityContext`.
 - ajouter un `@Bean` de type `OAuth2AuthenticationFactory` pour changer le type d'`Authentication` utilisé de `JwtAuthenticationToken` à `OAuthentication<OpenidClaimSet>`. [Exemple ici](https://github.com/ch4mpy/spring-addons/tree/master/samples/webmvc-jwt-oauthentication)
 - mettre à jour le `@Controller` et les tests unitaires avec le nouveau type d'`Authentication`
 
 #### 1.1.2. Users API
-Cette API a pour but de retourner les roles d'un utilisateur donné. Voici les fonctionnalités à implémenter:
-- configuration `resource server` qui utilise la claim `scope` du JWT comme source pour les authorities Spring et Auht0 comme issuer. Utiliser [`com.c4-soft.springaddons:spring-addons-webmvc-jwt-resource-server`](https://central.sonatype.com/artifact/com.c4-soft.springaddons/spring-addons-webmvc-jwt-resource-server/6.1.11). Utiliser la "Greetings API" ou [cet autre exemple](https://github.com/ch4mpy/spring-addons/tree/master/samples/webmvc-jwt-default) comme base.
-- exposer un endpoint REST GET pour le path `/v1/users/{id}/roles` qui retourne un DTO contenant une liste de roles
-- rendre le endpoint accessible uniquement aux requêtes authorisées avec l'Authority `roles:read`
+Cette API a pour but de retourner les roles d'un utilisateur donné. 
+
+Voici les éléments de configuration à implémenter (utiliser la "Greetings API" ou [cet autre exemple](https://github.com/ch4mpy/spring-addons/tree/master/samples/webmvc-jwt-default)) :
+- ajouter [`com.c4-soft.springaddons:spring-addons-webmvc-jwt-resource-server`](https://central.sonatype.com/artifact/com.c4-soft.springaddons/spring-addons-webmvc-jwt-resource-server/6.1.11) aux dépendances
+- configuration `resource server` qui utilise les claims suivantes comme source pour les authorities Spring
+  * `scope` en ajoutant le préfixe `SCOPE_`
+  * `roles` sans préfixe
+- Auht0 comme issuer
+
+Il faut ensuite implémenter le endpoint qui expose en lecture les roles d'un utiisateur donné :
+- exposer un endpoint REST GET pour le path `/v1/users/{email}/roles` qui retourne un DTO contenant une liste de roles
+- rendre le endpoint accessible uniquement aux requêtes authorisées avec les authorities `SCOPE_roles:read` ou `USER_ROLES_EDITOR`
 - jouer les tests unitaires pour valider votre l'implémentation.
 
+
 ### 1.2. BFFs
-Les Backends For Frontends sont des middlewares sur le serveur configurés comme clients OAuth2 et faisant le pont entre une sécurité basée sur des sessions (côté externe) et une basée sur des "access tokens" OAuth2.
+Les Backends For Frontends sont des middlewares sur le serveur configurés comme clients OAuth2 et faisant le pont entre une sécurité basée sur des sessions (front-ends web & mobile) et une basée sur des "access tokens" OAuth2 (resource serveurs).
 
 Nous utiliserons `spring-cloud-gateway` avec le filtre `TokenRelay` et un starter Spring Boot pour la configuration OAuth2 "cliente". La même application Spring Boot sera instanciée trois fois avec des configurations légèrement différentes (une instance par front-end).
 
@@ -48,11 +68,186 @@ Se rendre sur https://start.spring.io pour générer un projet Maven / Java avec
 
 Une fois le projet dézippé, l'ajouter en tant que module du `backend` (le placer dans le répertoire `backend`, changer le parent et supprimer les ressources liées au Maven wrapper et à Git)
 
-Ajouter des dépendances à :
+Spring-cloud-gateway étant une application réctive, ajouter des dépendances à :
 - `com.c4-soft.springaddons:spring-addons-webflux-client`
 - `com.c4-soft.springaddons:spring-addons-webflux-ressource-server`
 
-S'inspirer des deux autres modules BFF pour la configuration.
+Il faut ensuite fournir la configuration (changer le fichier properties en YAML) :
+```yaml
+scheme: http
+oauth2-issuer: https://dev-ch4mpy.eu.auth0.com/
+oauth2-client-id: change-me
+oauth2-client-secret: change-me
+
+gateway-uri: ${scheme}://localhost:${server.port}
+greetings-api-uri: ${scheme}://localhost:7084
+users-api-uri: ${scheme}://localhost:7085
+# en dev: https://openid-training.c4-soft.com (pour le deep link Android), http://localhost:3002 ou http://localhost:3003
+# en prod: https://openid-training.c4-soft.com
+ui-host: http://localhost:3002
+ui-path: /back-office/web
+# Rien pour le web (servi a travers la gateway) et "RedirectTo=301,${ui-host}${ui-path}" pour le mobile (ne pas oublier les guillemets)
+ui-filters:
+allowed-origins:
+- http://localhost:3002
+- http://localhost:3003
+- https://localhost:3402
+- https://localhost:3403
+
+server:
+  port: 8080
+  shutdown: graceful
+  ssl:
+    enabled: false
+
+spring:
+  config:
+    import:
+    - optional:configtree:/workspace/config/
+    - optional:configtree:/workspace/secret/
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  security:
+    oauth2:
+      client:
+        provider:
+          oauth2:
+            issuer-uri: ${oauth2-issuer}
+        registration:
+          authorization-code:
+            authorization-grant-type: authorization_code
+            client-id: ${oauth2-client-id}
+            client-secret: ${oauth2-client-secret}
+            provider: oauth2
+            scope:
+            - openid
+            - profile
+            - email
+            - offline_access
+  cloud:
+    gateway:
+      default-filters:
+      - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      routes:
+      - id: home
+        uri: ${gateway-uri}
+        predicates:
+        - Path=/
+        filters:
+        - RedirectTo=301,${gateway-uri}/ui
+      - id: ui
+        uri: ${ui-host}
+        predicates:
+        - Path=${ui-path}
+        filters: ${ui-filters}
+      - id: greetings-api
+        uri: ${greetings-api-uri}
+        predicates:
+        - Path=/bff/v1/greetings/**
+        filters:
+        - TokenRelay=
+        - SaveSession
+        - StripPrefix=2
+      - id: users-api
+        uri: ${users-api-uri}
+        predicates:
+        - Path=/bff/v1/users/**
+        filters:
+        - TokenRelay=
+        - SaveSession
+        - StripPrefix=2
+      - id: letsencrypt
+        uri: https://cert-manager-webhook
+        predicates:
+        - Path=/.well-known/acme-challenge/**
+
+com:
+  c4-soft:
+    springaddons:
+      security:
+        # Global OAuth2 configuration
+        issuers:
+        - location: ${oauth2-issuer}
+          username-claim: $['https://c4-soft.com/user']['name']
+          authorities:
+          - path: $['https://c4-soft.com/user']['roles']
+          - path: $.scope
+            prefix: SCOPE_
+        # OAuth2 client configuration
+        client:
+          client-uri: ${gateway-uri}
+          security-matchers:
+          - /login/**
+          - /oauth2/**
+          - /
+          - /logout
+          - /api/**
+          - /ui/**
+          permit-all:
+          - /login/**
+          - /oauth2/**
+          - /
+          - /api/**
+          - /ui/**
+          csrf: cookie-accessible-from-js
+          post-login-redirect-path: /ui/
+          post-logout-redirect-path: /ui/
+          back-channel-logout-enabled: true
+          oauth2-logout:
+          - client-registration-id: authorization-code
+            uri: ${oauth2-issuer}v2/logout
+            client-id-request-param: client_id
+            post-logout-uri-request-param: returnTo
+        # OAuth2 resource server configuration
+        csrf: disable
+        statless-sessions: true
+        cors:
+        - path: /api/**
+          allowed-origins: ${allowed-origins}
+        permit-all:
+        - /v3/api-docs/**
+        - /actuator/health/readiness
+        - /actuator/health/liveness
+        - /.well-known/acme-challenge/**
+            
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    org:
+      springframework:
+        security: INFO
+    
+---
+spring:
+  config:
+    activate:
+      on-profile: ssl
+  cloud:
+    gateway:
+      default-filters:
+      - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      - SecureHeaders
+server:
+  ssl:
+    enabled: true
+
+scheme: https
+```
 
 ### 1.3. Génération des Specs OpenAPI
 Le `springdoc-openapi-maven-plugin` est configuré dans le pom parent. Il est activé, pour chaque projet, avec le profile Maven `openapi`.
@@ -60,17 +255,20 @@ Le `springdoc-openapi-maven-plugin` est configuré dans le pom parent. Il est ac
 Pour générer les fichiers JSON de spec OpenAPI, simplement éxécuter `mvn install -Popenapi`. Ils sont récupérés pendant la phase de tests d'intégration (au sens Maven) sur le endpoint `/v3/api-docs/` exposé par `springdoc-openapi-starter-webmvc-api` (ou `springdoc-openapi-starter-webflux-api` pour le BFF), qui n'est présent que lorsque le profile Maven `openapi` est activé.
 
 ### 1.4. Exécution Des Projets Spring Boot En Local
-Préparer trois configurations d'exécution distinctes pour le BFF (port `8081` pour le front mobile, `8082` pour le back web et `8083` pour le front web)
+Préparer trois configurations d'exécution distinctes pour le BFF (port `7081` pour le front mobile, `7082` pour le back web et `7083` pour le front web)
 
-Voici les properties à surcharger avant de lancer les BFFs:
+Voici les properties à surcharger avant de lancer les BFFs en dev:
 ```properties
 server.port=
 oauth2-client-id=
 oauth2-client-secret=
-spring.cloud.gateway.default-filters=DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+spring.cloud.gateway.default-filters="DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin"
+ui-host=
+ui-path=
+ui-filters=
 ```
 
-Pour les resource servers, seul le port est nécessaire (`8084` pour la greetings-api et `8085` pour celle des users)
+Pour les resource servers, seul le port est nécessaire (`7084` pour la greetings-api et `7085` pour celle des users)
 
 Pour lancer sur `https`, [générer (et installer) un certificat auto-signé](https://github.com/ch4mpy/self-signed-certificate-generation), puis activer le profile Spring `ssl`.
 
@@ -85,7 +283,7 @@ Nous allons créer deux applications distinctes:
 ### 2.1.1. SPA Next.js Back-Office
 - `npx create-next-app@latest web-back-office`
 - `cd web-back-office`
-- `basePath: '/ui'` à la `nextConfig` (fichier `next.config.js`): l'application next sera servie à travers le BFF, à partir de `https://localhost:8082/ui` (ou `https://openid-training.c4-soft.com/web-back-office/ui` en prod)
+- `basePath: '/back-office/web'` à la `nextConfig` (fichier `next.config.js`): l'application next sera servie à travers le BFF, à partir de `https://localhost:7082/back-office/web` (ou `https://openid-training.c4-soft.com/web-back-office/back-office/web` en prod)
 - `npm i -D @openapitools/openapi-generator-cli`
 - `npm i axios @mui/material @mui/icons-material @emotion/react @emotion/styled`
 - dans le package.json, définir un port spécifique pour le back-office en dev: `"dev": "next dev -p 3002"`
@@ -93,9 +291,9 @@ Nous allons créer deux applications distinctes:
     * `"generate:bff-api": "npx openapi-generator-cli generate -i ../bff.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/bff-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/bff-api"`
     * `"generate:greetings-api": "npx openapi-generator-cli generate -i ../greetings-api.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/greetings-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/greetings-api"`
     * `"generate:users-api": "npx openapi-generator-cli generate -i ../users-api.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/users-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/users-api"`
-    * `"postinstall": "npm run generate:bff-api && npm run generate:greetings-api && npm run generate:users-api"`
+    * `"api": "npm run generate:bff-api && npm run generate:greetings-api && npm run generate:users-api"`
 - `npm i`
-- créer un fichier `.env.development` contenant `NEXT_PUBLIC_BFF_BASE_PATH=https://localhost:8082` et un autre `.env.production` contenant `NEXT_PUBLIC_BFF_BASE_PATH=https://openid-training.c4-soft.com/web-back-office`
+- créer un fichier `.env.development` contenant `NEXT_PUBLIC_BFF_BASE_PATH=https://localhost:7082/bff` et un autre `.env.production` contenant `NEXT_PUBLIC_BFF_BASE_PATH=https://openid-training.c4-soft.com/bff`
 - créer un helper pour les trois libs clientes générées à partir des specs OpenAPI:
 ```ts
 import { BFFApi, Configuration as BFFConfiguration } from "@/c4-soft/bff-api";
@@ -313,7 +511,7 @@ export default async function Home() {
 ```
 
 ### 2.1.2. SPA Next.js Front-Office
-- reproduire l'initialisation de l'application précédente pour le `web-front-office` (création du projet, dépendances npm et génération des libs clientes d'APIs). Attention, le port du BFF doit être `8083` pour le front web et il faut choisir un autre port pour l'exécution en dev si pour pouvoir lancer simultanément le front et le back: `"dev": "next dev -p 3003"`.
+- reproduire l'initialisation de l'application précédente pour le `web-front-office` (création du projet, dépendances npm et génération des libs clientes d'APIs). Attention, le port du BFF doit être `7083` pour le front web et il faut choisir un autre port pour l'exécution en dev si pour pouvoir lancer simultanément le front et le back: `"dev": "next dev -p 3003"`.
 - copier également les fichiers d'env, ainsi que la classe helper pour les APIs (en ajoutant la `greetings-api`) et le composant gérant les login & logout
 - ajouter un composant client pour afficher le "greeting" retourné par l'API pour l'utilisateur courant:
 ```tsx
@@ -428,9 +626,133 @@ export default async function Home() {
 }
 ```
 
-### 2.2. Application Mobile React Native
+### 2.2. Application Mobile React Native (Android)
+- `npx react-native@latest init mobile_front_office`
+- `cd mobile_front_office`
+- `npm i -D @openapitools/openapi-generator-cli react-devtools`
+- `npm i axios react-native-url-polyfill`
+- ajouter `import 'react-native-url-polyfill/auto';` à l'App.tsx
+- ajouter les scripts npm suivants:
+```json
+  {
+    "api": "npm run generate:bff-api && npm run generate:greetings-api && npm run generate:users-api && cd ./c4-soft/bff-api && npm run build && cd ../greetings-api && npm run build && cd ../users-api && npm run build",
+    "generate:bff-api": "npx openapi-generator-cli generate -i ../bff.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/bff-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/bff-api",
+    "generate:greetings-api": "npx openapi-generator-cli generate -i ../greetings-api.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/greetings-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/greetings-api",
+    "generate:users-api": "npx openapi-generator-cli generate -i ../users-api.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/users-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/users-api"
+  }
+```
+- `npm i`
+- `npx react-native start`
 
+- ajouter l'intent-filter suivant à la main-activitya
+```xml
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <!-- Accepts URIs that begin with "https://openid-training.c4-soft.com/front-office/mobile/app” -->
+        <data android:scheme="https"
+          android:host="openid-training.c4-soft.com"
+          android:pathPrefix="/front-office/mobile/app" />
+      </intent-filter>
+```
 
+```tsx
+import {useEffect, useState} from 'react';
+import {
+  Button,
+  Linking,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import 'react-native-url-polyfill/auto';
+import {APIs} from './apis';
+import {UserInfoDto} from './c4-soft/users-api';
+
+const ANONYMOUS: UserInfoDto = {email: '', name: '', roles: []};
+
+export default function App() {
+  const [currentUser, setCurrentUser] = useState(ANONYMOUS);
+  const [greeting, setGreeting] = useState('');
+
+  function login() {
+    console.log('login');
+    APIs.gateway
+      .getLoginOptions()
+      .then(async response => {
+        const loginUri = response.data[0].loginUri;
+        if (loginUri) {
+          console.log('redirect to ', loginUri);
+          await Linking.openURL(loginUri);
+        } else {
+          console.warn('no login URL. Already logged in? ', response);
+        }
+      })
+      .catch(reason => console.warn(reason));
+  }
+
+  function logout() {
+    APIs.gateway.logout().then(async response => {
+      const logoutUri = response.headers.location;
+      if (logoutUri) {
+        await Linking.openURL(logoutUri);
+      }
+    });
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="auto" />
+      <ScrollView contentInsetAdjustmentBehavior="automatic">
+        <Text>Formation OpenID</Text>
+        <Text>Front-End React Native</Text>
+        <View>
+          <Text>{greeting}</Text>
+          {!currentUser.email ? (
+            <Button onPress={login} title="Login" />
+          ) : (
+            <Button onPress={logout} title="Logout" />
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+function updateURLParameter(url: string, param: string, paramVal: string) {
+  var newAdditionalURL = '';
+  var tempArray = url.split('?');
+  var baseURL = tempArray[0];
+  var additionalURL = tempArray[1];
+  var temp = '';
+  if (additionalURL) {
+    tempArray = additionalURL.split('&');
+    for (var i = 0; i < tempArray.length; i++) {
+      if (tempArray[i].split('=')[0] !== param) {
+        newAdditionalURL += temp + tempArray[i];
+        temp = '&';
+      }
+    }
+  }
+
+  var rows_txt = temp + '' + param + '=' + paramVal;
+  return baseURL + '?' + newAdditionalURL + rows_txt;
+}
+
+```
 ## 3. OpenID Providers
 Nous utiliserons Auth0 comme OP principal. Il aura pour responsabilité de fédérer les identités Keycloak.
 

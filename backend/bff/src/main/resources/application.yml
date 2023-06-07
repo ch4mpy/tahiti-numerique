@@ -4,9 +4,12 @@ oauth2-client-id: change-me
 oauth2-client-secret: change-me
 
 gateway-uri: ${scheme}://localhost:${server.port}
-greetings-api-uri: ${scheme}://localhost:8084
-users-api-uri: ${scheme}://localhost:8085
-ui-uri: http://localhost:3000
+greetings-api-uri: ${scheme}://localhost:7084
+users-api-uri: ${scheme}://localhost:7085
+# en dev: https://openid-training.c4-soft.com (pour le deep link Android), http://localhost:3002 ou http://localhost:3003
+# en prod: https://openid-training.c4-soft.com
+ui-host: http://localhost:3002
+ui-path: /back-office/web
 allowed-origins:
 - http://localhost:3002
 - http://localhost:3003
@@ -53,16 +56,27 @@ spring:
         predicates:
         - Path=/
         filters:
-        - RedirectTo=301,${gateway-uri}/ui/
+        - RedirectTo=301,${gateway-uri}/ui
       - id: ui
-        uri: ${ui-uri}
+        uri: ${ui-host}
         predicates:
-        - Path=/ui/**
+        - Path=${ui-path}
+      - id: mobile-redirect
+        uri: ${ui-host}
+        predicates:
+        - Path=${ui-path}/mobile-app
         filters:
+        - RedirectTo=301,${ui-host}${ui-path}/mobile-app
       - id: greetings-api
         uri: ${greetings-api-uri}
         predicates:
         - Path=/api/v1/greetings/**
+        filters:
+        - StripPrefix=2
+      - id: greetings-bff
+        uri: ${greetings-api-uri}
+        predicates:
+        - Path=/bff/v1/greetings/**
         filters:
         - TokenRelay=
         - SaveSession
@@ -71,6 +85,12 @@ spring:
         uri: ${users-api-uri}
         predicates:
         - Path=/api/v1/users/**
+        filters:
+        - StripPrefix=2
+      - id: users-bff
+        uri: ${users-api-uri}
+        predicates:
+        - Path=/bff/v1/users/**
         filters:
         - TokenRelay=
         - SaveSession
@@ -101,13 +121,15 @@ com:
           - /
           - /logout
           - /api/**
-          - /ui/**
+          - /bff/**
+          - ${ui-path}/**
           permit-all:
           - /login/**
           - /oauth2/**
           - /
           - /api/**
-          - /ui/**
+          - /bff/**
+          - ${ui-path}/**
           csrf: cookie-accessible-from-js
           post-login-redirect-path: /ui/
           post-logout-redirect-path: /ui/
@@ -149,7 +171,7 @@ logging:
     root: INFO
     org:
       springframework:
-        security: TRACE
+        security: INFO
     
 ---
 spring:

@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "postinstall": "npm run generate:bff-api && npm run generate:greetings-api && npm run generate:users-api",
     "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "api": "npm run generate:bff-api && npm run generate:greetings-api && npm run generate:users-api",
     "generate:bff-api": "npx openapi-generator-cli generate -i ../bff.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/bff-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/bff-api",
     "generate:greetings-api": "npx openapi-generator-cli generate -i ../greetings-api.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/greetings-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/greetings-api",
     "generate:users-api": "npx openapi-generator-cli generate -i ../users-api.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/users-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/users-api",
