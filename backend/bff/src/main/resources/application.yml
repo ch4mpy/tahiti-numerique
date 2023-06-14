@@ -61,12 +61,12 @@ spring:
         uri: ${ui-host}
         predicates:
         - Path=${ui-path}
-      - id: mobile-redirect
+      - id: redirect-to-app
         uri: ${ui-host}
         predicates:
-        - Path=${ui-path}/mobile-app
+        - Path=${ui-path}/app
         filters:
-        - RedirectTo=301,${ui-host}${ui-path}/mobile-app
+        - RedirectTo=301,${ui-host}${ui-path}/app
       - id: greetings-api
         uri: ${greetings-api-uri}
         predicates:

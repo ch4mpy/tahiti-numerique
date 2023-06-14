@@ -14,17 +14,22 @@ import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 
+import com.c4_soft.springaddons.security.oauth2.OAuthentication;
+import com.c4_soft.springaddons.security.oauth2.OpenidClaimSet;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.Claims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.NestedClaims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenId;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.StringClaim;
+import com.c4_soft.springaddons.security.oauth2.test.annotations.parameterized.OpenIdAuthenticationSource;
+import com.c4_soft.springaddons.security.oauth2.test.annotations.parameterized.ParameterizedOpenId;
 import com.c4_soft.springaddons.security.oauth2.test.mockmvc.MockMvcSupport;
 import com.c4soft.openidtraining.usersapi.EnableSpringDataWebSupportTestConf;
 import com.c4soft.openidtraining.usersapi.SecuredTest;
@@ -54,24 +59,15 @@ class UsersControllerTest {
 		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail())).andExpect(status().isUnauthorized());
 	}
 
-	@Test
-	@OpenId("SCOPE_roles:read")
-	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfExistingUser_thenRolesAreReturned() throws Exception {
+	@ParameterizedTest
+	@OpenIdAuthenticationSource({@OpenId("SCOPE_roles:read"), @OpenId("USER_ROLES_EDITOR")})
+	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfExistingUser_thenRolesAreReturned(@ParameterizedOpenId OAuthentication<OpenidClaimSet> auth) throws Exception {
 		// @formatter:off
 		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[*]", containsInAnyOrder(UserRolesFixtures.CH4MP.getRoles().toArray())));
 		// @formatter:on
-	}
-
-	@Test
-	@OpenId("USER_ROLES_EDITOR")
-	void givenUserIsGrantedWithUserRolesEditor_whenGetUserRolesOfExistingUser_thenRolesAreReturned() throws Exception {
-		// @formatter:off
-		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$[*]", containsInAnyOrder(UserRolesFixtures.CH4MP.getRoles().toArray())));
-		// @formatter:on
+		
 	}
 
 	@Test
