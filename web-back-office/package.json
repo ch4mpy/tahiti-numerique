@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",
-    "build": "next build",
+    "build": "npm run api && next build",
     "start": "next start",
     "lint": "next lint",
     "api": "npm run generate:bff-api && npm run generate:greetings-api && npm run generate:users-api",

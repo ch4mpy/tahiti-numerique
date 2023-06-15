@@ -11,15 +11,15 @@ Le but est de mettre en place:
 Les roles des utilisateurs seront gérés par la `users-api` (pas par Auth0 ou Keycloak). Avant d'émettre un access token, Auth0 interrogera la `users-api` pour récupérer les roles d'un utilisateur et les insérer dans les private-claims.
 
 Voici les URLs de "prod" :
-- https://openid-training.c4-soft.com/front-office/web : application Next.js "front-office"
-- https://openid-training.c4-soft.com/front-office/mobile/app utilisée comme deep-link Android (pourrait aussi être utilisé comme universal-link iOS en y hébergeant un fichier `apple-app-site-association`)
-- https://openid-training.c4-soft.com/back-office/web : application Next.js "front-office"
-- https://openid-training.c4-soft.com/bff/v1/greetings : accès à l'API `greetings` pour les frontends web & mobile (requêtes avec session)
-- https://openid-training.c4-soft.com/bff/v1/users : accès à l'API `users` pour les frontends web & mobile (requêtes avec session)
-- https://openid-training.c4-soft.com/api/v1/greetings : accès à l'API `greetings` pour les clients OAuth2 (requêtes avec access token)
-- https://openid-training.c4-soft.com/api/v1/users : accès à l'API `users` pour les clients OAuth2 (requêtes avec access token)
-- https://openid-training.c4-soft.com/login/options : endpoint exposant les URIs possibles pour initier l'authenticafication d'un utilisateur
-- https://openid-training.c4-soft.com/logout : endpoint pour terminer une session utilisateur
+- https://web.front-office.openid-training.c4-soft.com/ui : application Next.js "front-office"
+- https://mobile.front-office.openid-training.c4-soft.com/ui utilisée comme deep-link Android (pourrait aussi être utilisé comme universal-link iOS en y hébergeant un fichier `apple-app-site-association`)
+- https://web.back-office.openid-training.c4-soft.com/ui : application Next.js "front-office"
+- /bff/v1/greetings : accès à l'API `greetings` pour les frontends web & mobile (requêtes avec session)
+- /bff/v1/users : accès à l'API `users` pour les frontends web & mobile (requêtes avec session)
+- /api/v1/greetings : accès à l'API `greetings` pour les clients OAuth2 (requêtes avec access token)
+- /api/v1/users : accès à l'API `users` pour les clients OAuth2 (requêtes avec access token)
+- /login/options : endpoint exposant les URIs possibles pour initier l'authenticafication d'un utilisateur
+- /logout : endpoint pour terminer une session utilisateur
 
 ## 1. Backend Spring Boot
 Projet Maven comprenant des modules d'API REST configurés en tant que resource server OAuth2 et un **B**ackends **F**or **F**rontend faisant l'interface entre ces resource server et les front-ends qui, étant des SPAs ou une application mobile, ne seraient pas des client OAuth2 fiables.
@@ -44,7 +44,7 @@ Voici les éléments de configuration à implémenter (utiliser la "Greetings AP
 - ajouter [`com.c4-soft.springaddons:spring-addons-webmvc-jwt-resource-server`](https://central.sonatype.com/artifact/com.c4-soft.springaddons/spring-addons-webmvc-jwt-resource-server/6.1.11) aux dépendances
 - configuration `resource server` qui utilise les claims suivantes comme source pour les authorities Spring
   * `scope` en ajoutant le préfixe `SCOPE_`
-  * `roles` sans préfixe
+  * `$['https://c4-soft.com/authorities']` sans préfixe
 - Auht0 comme issuer
 
 Il faut ensuite implémenter le endpoint qui expose en lecture les roles d'un utiisateur donné :
@@ -134,7 +134,7 @@ spring:
         predicates:
         - Path=/
         filters:
-        - RedirectTo=301,${gateway-uri}/ui
+        - RedirectTo=301,${gateway-uri}${ui-path}
       - id: ui
         uri: ${ui-host}
         predicates:
@@ -170,7 +170,7 @@ com:
         - location: ${oauth2-issuer}
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
-          - path: $['https://c4-soft.com/user']['roles']
+          - path: $['https://c4-soft.com/authorities']
           - path: $.scope
             prefix: SCOPE_
         # OAuth2 client configuration
@@ -182,16 +182,16 @@ com:
           - /
           - /logout
           - /api/**
-          - /ui/**
+          - ${ui-path}/**
           permit-all:
           - /login/**
           - /oauth2/**
           - /
           - /api/**
-          - /ui/**
+          - ${ui-path}/**
           csrf: cookie-accessible-from-js
-          post-login-redirect-path: /ui/
-          post-logout-redirect-path: /ui/
+          post-login-redirect-path: ${ui-path}
+          post-logout-redirect-path: ${ui-path}
           back-channel-logout-enabled: true
           oauth2-logout:
           - client-registration-id: authorization-code
@@ -650,10 +650,10 @@ export default async function Home() {
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
-        <!-- Accepts URIs that begin with "https://openid-training.c4-soft.com/front-office/mobile/app” -->
+        <!-- Accepts URIs that begin with "https://mobile.front-office.openid-training.c4-soft.com/ui” -->
         <data android:scheme="https"
-          android:host="openid-training.c4-soft.com"
-          android:pathPrefix="/front-office/mobile/app" />
+          android:host="mobile.front-office.openid-training.c4-soft.com"
+          android:pathPrefix="/ui" />
       </intent-filter>
 ```
 
@@ -766,12 +766,12 @@ Nous utiliserons Auth0 comme OP principal. Il aura pour responsabilité de féd�
 - créez un compte gratuit si vous n'en possédez pas déjà un
 - dans `Applications` -> `APIs`
   * ajouter une "API" nommée `OpenID Training users API` avec `https://openid-training.c4-soft.com/api/users`
-  * dans l'onglet `Permissions`, ajouter  `read:user-roles`
+  * dans l'onglet `Permissions`, ajouter  `roles:read`
 - déclarez les "applications" suivantes (ce sont en réalité des clients OAuth2 que nous configurons ici):
   * `OpenID Training BFF back-office` (Regular Web Application)
   * `OpenID Training BFF front-office` (Regular Web Application)
   * `OpenID Training BFF mobile` (Regular Web Application)
-  * `OpenID Training users roles API` (Machine to Machine). Dans l'onglet `APIs`, activer `OpenID Training users API`, puis déplier le détail de cette API pour activer la permission `read:user-roles`
+  * `OpenID Training users roles API` (Machine to Machine). Dans l'onglet `APIs`, activer `OpenID Training users API`, puis déplier le détail de cette API pour activer la permission `roles:read`
 - dans `Authentication` -> `Social`, créer un connection "custom" (tout en bas). 
   * les endpoints importants sont fournis par le `.well-known/openid-configuration` de l'OP à fédérer
   * dans la section `Scope`, indiquer `openid profile email`
@@ -819,5 +819,55 @@ exports.onExecutePostLogin = async (event, api) => {
   api.accessToken.setCustomClaim(`${namespace}/user`, user);
   api.idToken.setCustomClaim(`${namespace}/user`, user);
   return; // success
+};
+```
+- ajouter une seconde action `Read roles from OpenID-training users API` (également définir les secrets `M2M_ROLES_ID` et `M2M_ROLES_SECRET` dans le menu sur la gauche de l'éditeur, en utilisant les valeurs fournies pour le client "Machine to Machine")
+```typescript
+const axios = require('axios');
+
+exports.onExecutePostLogin = async (event, api) => {
+  // console.log(event.user.email)
+
+  const namespace = 'https://c4-soft.com'
+  const audience = 'https://web.back-office.openid-training.c4-soft.com'
+  const tokenUri = 'https://dev-ch4mpy.eu.auth0.com/oauth/token'
+  const rolesUri = `https://web.back-office.openid-training.c4-soft.com/api/v1/users/${event.user.email}/roles`
+  
+
+  //Request the access token
+  const tokenRequest = {
+    method: "POST",
+    url: tokenUri,
+    headers: { "content-type": "application/json" },
+    data: `{
+      "client_id":"${event.secrets.M2M_ROLES_ID}",
+      "client_secret":"${event.secrets.M2M_ROLES_SECRET}",
+      "audience":"${audience}",
+      "grant_type":"client_credentials"
+    }`,
+  };
+  const tokenRes = await axios(tokenRequest).catch((err) => {
+    console.log(err);
+    return err; // FIXME: remove for prod
+  });
+  const access_token = tokenRes.data.access_token;
+  // console.log("GET token: ", tokenRes.status, " data: ", tokenRes.data);
+
+  const userRolesRequest = {
+    method: "GET",
+    url: rolesUri,
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${access_token}`,
+    },
+  };
+  // console.log("GET roles at ", rolesUri)
+  const rolesRes = await axios(userRolesRequest).catch((err) => {
+    console.log(err);
+    return err; // FIXME: remove for prod
+  });
+  // console.log("GET roles", rolesRes.status, " data: ", rolesRes.data);
+
+  api.idToken.setCustomClaim(`${namespace}/authorities`, rolesRes.data);
 };
 ```

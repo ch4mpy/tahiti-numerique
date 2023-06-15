@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     basePath: '/ui',
-    output: 'standalone',
+    assetPrefix: '/ui',
 }
 
 module.exports = nextConfig

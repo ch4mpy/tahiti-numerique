@@ -40,18 +40,8 @@
     "description": "Internal host serving the UI"
   },
   {
-    "name": "ui-path",
-    "type": "java.lang.String",
-    "description": "Path for the UI on ui-host"
-  },
-  {
     "name": "allowed-origins",
     "type": "java.lang.String[]",
     "description": "Allowed origins for CORS requests"
-  },
-  {
-    "name": "ui-filters",
-    "type": "java.lang.String[]",
-    "description": "spring-cloud-gateway filters to apply to UI"
   }
 ]}

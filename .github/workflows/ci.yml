@@ -1,0 +1,100 @@
+name: CI
+
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: 17
+          cache: 'maven'
+
+      - uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Make Maven Wrapper executable
+        if: contains(matrix.os, 'win') == false
+        run: chmod +x ./backend/mvnw
+
+      - name: Package with Maven
+        run: |
+          cd ./backend
+          ./mvnw clean install -Popenapi
+          ./mvnw spring-boot:build-image -pl bff,greetings-api -Pnative -DskipTests
+          ./mvnw spring-boot:build-image -pl users-api -DskipTests
+
+      - name: Set VERSION environment variable
+        run: |
+          cd ./backend
+          echo "VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker Tag-Push gateway ${{ env.VERSION }}
+        run: |
+          docker tag bff:${{ env.VERSION }} ${{ secrets.DOCKERHUB_USERNAME }}/openid-training-bff
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/openid-training-bff
+
+      - name: Docker Build-Tag-Push greetings-api-v1 ${{ env.VERSION }}
+        run: |
+          docker tag greetings-api:${{ env.VERSION }} ${{ secrets.DOCKERHUB_USERNAME }}/openid-training-greetings-api-v1
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/openid-training-greetings-api-v1
+
+      - name: Docker Build-Tag-Push users-api-v1 ${{ env.VERSION }}
+        run: |
+          docker tag users-api:${{ env.VERSION }} ${{ secrets.DOCKERHUB_USERNAME }}/openid-training-users-api-v1
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/openid-training-users-api-v1
+      
+      - name: Build web back-office
+        run: |
+          cd ./web-back-office
+          npm i
+          npm run build
+
+      - name: Docker Build-Tag-Push web back-office
+        uses: docker/build-push-action@v4
+        with:
+          context: ./web-back-office
+          file: ./web-back-office/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/openid-training-web-back-ui
+      
+      - name: Build web front-office
+        run: |
+          cd ./web-front-office
+          npm i
+          npm run build
+
+      - name: Docker Build-Tag-Push web front-office
+        uses: docker/build-push-action@v4
+        with:
+          context: ./web-front-office
+          file: ./web-front-office/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/openid-training-web-front-ui
+      
+      - name: Rollout Restart OVH openid-training
+        run: |
+          mkdir ${HOME}/.kube
+          echo ${{ secrets.OVH_KUBECONFIG }} | base64 --decode > ${HOME}/.kube/config
+          kubectl config use-context ovh
+          kubectl rollout restart -n openid-training deployment.apps/greetings-api-v1 deployment.apps/users-api-v1 deployment.apps/web-back-ui deployment.apps/web-front-ui deployment.apps/mobile-front-gateway deployment.apps/web-back-gateway deployment.apps/web-front-gateway

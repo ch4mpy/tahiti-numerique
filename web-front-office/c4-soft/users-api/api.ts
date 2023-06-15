@@ -120,11 +120,11 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
         /**
          * 
          * @param {string} email 
-         * @param {Set<string>} requestBody 
+         * @param {Array<string>} requestBody 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        updateRoles: async (email: string, requestBody: Set<string>, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        updateRoles: async (email: string, requestBody: Array<string>, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'email' is not null or undefined
             assertParamExists('updateRoles', 'email', email)
             // verify required parameter 'requestBody' is not null or undefined
@@ -188,11 +188,11 @@ export const UsersApiFp = function(configuration?: Configuration) {
         /**
          * 
          * @param {string} email 
-         * @param {Set<string>} requestBody 
+         * @param {Array<string>} requestBody 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async updateRoles(email: string, requestBody: Set<string>, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<object>> {
+        async updateRoles(email: string, requestBody: Array<string>, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<object>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.updateRoles(email, requestBody, options);
             return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
         },
@@ -226,11 +226,11 @@ export const UsersApiFactory = function (configuration?: Configuration, basePath
         /**
          * 
          * @param {string} email 
-         * @param {Set<string>} requestBody 
+         * @param {Array<string>} requestBody 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        updateRoles(email: string, requestBody: Set<string>, options?: any): AxiosPromise<object> {
+        updateRoles(email: string, requestBody: Array<string>, options?: any): AxiosPromise<object> {
             return localVarFp.updateRoles(email, requestBody, options).then((request) => request(axios, basePath));
         },
     };
@@ -262,12 +262,12 @@ export interface UsersApiInterface {
     /**
      * 
      * @param {string} email 
-     * @param {Set<string>} requestBody 
+     * @param {Array<string>} requestBody 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UsersApiInterface
      */
-    updateRoles(email: string, requestBody: Set<string>, options?: AxiosRequestConfig): AxiosPromise<object>;
+    updateRoles(email: string, requestBody: Array<string>, options?: AxiosRequestConfig): AxiosPromise<object>;
 
 }
 
@@ -302,12 +302,12 @@ export class UsersApi extends BaseAPI implements UsersApiInterface {
     /**
      * 
      * @param {string} email 
-     * @param {Set<string>} requestBody 
+     * @param {Array<string>} requestBody 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UsersApi
      */
-    public updateRoles(email: string, requestBody: Set<string>, options?: AxiosRequestConfig) {
+    public updateRoles(email: string, requestBody: Array<string>, options?: AxiosRequestConfig) {
         return UsersApiFp(this.configuration).updateRoles(email, requestBody, options).then((request) => request(this.axios, this.basePath));
     }
 }

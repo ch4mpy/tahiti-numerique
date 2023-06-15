@@ -8,15 +8,15 @@ import {
   Configuration as UsersConfiguration,
 } from './c4-soft/users-api';
 
-const basePath = 'http://192.168.1.182:7081';
+const basePath = 'https://mobile.front-office.openid-training.c4-soft.com';
 
-const bffApiConf = new BFFConfiguration({
+export const bffApiConf = new BFFConfiguration({
   basePath: basePath,
 });
-const greetingsApiConf = new GreetingsConfiguration({
+export const greetingsApiConf = new GreetingsConfiguration({
   basePath: basePath + '/bff/v1',
 });
-const usersApiConf = new UsersConfiguration({
+export const usersApiConf = new UsersConfiguration({
   basePath: basePath + '/bff/v1',
 });
 

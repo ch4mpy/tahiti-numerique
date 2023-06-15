@@ -9,12 +9,7 @@ users-api-uri: ${scheme}://localhost:7085
 # en dev: https://openid-training.c4-soft.com (pour le deep link Android), http://localhost:3002 ou http://localhost:3003
 # en prod: https://openid-training.c4-soft.com
 ui-host: http://localhost:3002
-ui-path: /back-office/web
-allowed-origins:
-- http://localhost:3002
-- http://localhost:3003
-- https://localhost:3402
-- https://localhost:3403
+allowed-origins: http://localhost, http://localhost:3000, http://localhost:3002, http://localhost:3003, https://localhost:3402, https://localhost:3403, http://localhost:7082, https://localhost:7082
 
 server:
   port: 8080
@@ -48,8 +43,12 @@ spring:
             - offline_access
   cloud:
     gateway:
+      httpclient:
+        wiretap: true
+      httpserver:
+        wiretap: true
       default-filters:
-      - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Access-Control-Request-Method Access-Control-Request-Headers
       routes:
       - id: home
         uri: ${gateway-uri}
@@ -57,16 +56,16 @@ spring:
         - Path=/
         filters:
         - RedirectTo=301,${gateway-uri}/ui
-      - id: ui
-        uri: ${ui-host}
-        predicates:
-        - Path=${ui-path}
       - id: redirect-to-app
         uri: ${ui-host}
         predicates:
-        - Path=${ui-path}/app
+        - Path=/app
         filters:
-        - RedirectTo=301,${ui-host}${ui-path}/app
+        - RedirectTo=301,${ui-host}/app
+      - id: ui
+        uri: ${ui-host}
+        predicates:
+        - Path=/ui/**
       - id: greetings-api
         uri: ${greetings-api-uri}
         predicates:
@@ -87,6 +86,7 @@ spring:
         - Path=/api/v1/users/**
         filters:
         - StripPrefix=2
+        - RemoveRequestHeader=Origin
       - id: users-bff
         uri: ${users-api-uri}
         predicates:
@@ -109,30 +109,32 @@ com:
         - location: ${oauth2-issuer}
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
-          - path: $['https://c4-soft.com/user']['roles']
+          - path: $['https://c4-soft.com/authorities']
           - path: $.scope
             prefix: SCOPE_
+        cors:
         # OAuth2 client configuration
         client:
+          cors:
           client-uri: ${gateway-uri}
           security-matchers:
           - /login/**
           - /oauth2/**
           - /
           - /logout
-          - /api/**
-          - /bff/**
-          - ${ui-path}/**
+          - /api/v1/**
+          - /bff/v1/**
+          - /ui/**
           permit-all:
           - /login/**
           - /oauth2/**
           - /
-          - /api/**
-          - /bff/**
-          - ${ui-path}/**
+          - /api/v1/**
+          - /bff/v1/**
+          - /ui/**
           csrf: cookie-accessible-from-js
-          post-login-redirect-path: /ui/
-          post-logout-redirect-path: /ui/
+          post-login-redirect-path: /ui
+          post-logout-redirect-path: /ui
           back-channel-logout-enabled: true
           oauth2-logout:
           - client-registration-id: authorization-code
@@ -142,9 +144,6 @@ com:
         # OAuth2 resource server configuration
         csrf: disable
         statless-sessions: true
-        cors:
-        - path: /api/**
-          allowed-origins: ${allowed-origins}
         permit-all:
         - /v3/api-docs/**
         - /actuator/health/readiness
@@ -171,7 +170,10 @@ logging:
     root: INFO
     org:
       springframework:
-        security: INFO
+        security: TRACE
+        gateway:
+          handler:
+            RoutePredicateHandlerMapping: TRACE
     
 ---
 spring:

@@ -1,9 +1,5 @@
 oauth2-issuer: https://dev-ch4mpy.eu.auth0.com/
-allowed-origins:
-- http://localhost:3002
-- http://localhost:3003
-- https://localhost:3402
-- https://localhost:3403
+allowed-origins: http://localhost, http://localhost:3000, http://localhost:3002, http://localhost:3003, https://localhost:3402, https://localhost:3403, http://localhost:7082, https://localhost:7082
 
 server:
   port: 8080
@@ -32,7 +28,7 @@ com:
         - location: ${oauth2-issuer}
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
-          - path: $['https://c4-soft.com/user']['roles']
+          - path: $['https://c4-soft.com/authorities']
           - path: $.permissions
         permit-all:
         - "/greetings/**"
