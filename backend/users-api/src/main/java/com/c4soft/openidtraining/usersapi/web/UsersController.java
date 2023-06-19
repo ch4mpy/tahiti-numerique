@@ -43,13 +43,6 @@ import lombok.RequiredArgsConstructor;
 public class UsersController {
     private final UserRolesRepository rolesRepo;
 
-    @GetMapping("/{email}/roles")
-    @PreAuthorize("hasAnyAuthority('SCOPE_roles:read', 'USER_ROLES_EDITOR')")
-    @Transactional(readOnly = true)
-    public Collection<String> getRoles(@Parameter(schema = @Schema(type = "string", format = "email")) @PathVariable("email") Optional<UserRoles> userRoles) {
-        return userRoles.orElseThrow(() -> new EntityNotFoundException()).getRoles();
-    }
-
     @PutMapping("/{email}/roles")
     @PreAuthorize("hasAuthority('USER_ROLES_EDITOR')")
     @Transactional(readOnly = false)

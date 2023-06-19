@@ -47,13 +47,13 @@ Voici les éléments de configuration à implémenter (utiliser la "Greetings AP
   * `$['https://c4-soft.com/authorities']` sans préfixe
 - Auht0 comme issuer
 
-Il faut ensuite implémenter le endpoint qui expose en lecture les roles d'un utiisateur donné :
-- exposer un endpoint REST GET pour le path `/v1/users/{email}/roles` qui retourne un DTO contenant une liste de roles
+Il faut ensuite implémenter le endpoint qui expose en lecture les roles d'un utilisateur donné :
+- exposer un endpoint REST GET pour le path `/users/{email}/roles` qui retourne un DTO contenant une liste de roles
 - rendre le endpoint accessible uniquement aux requêtes authorisées avec les authorities `SCOPE_roles:read` ou `USER_ROLES_EDITOR`
 - jouer les tests unitaires pour valider votre l'implémentation.
 
 
-### 1.2. BFFs
+### 1.2. BFF
 Les Backends For Frontends sont des middlewares sur le serveur configurés comme clients OAuth2 et faisant le pont entre une sécurité basée sur des sessions (front-ends web & mobile) et une basée sur des "access tokens" OAuth2 (resource serveurs).
 
 Nous utiliserons `spring-cloud-gateway` avec le filtre `TokenRelay` et un starter Spring Boot pour la configuration OAuth2 "cliente". La même application Spring Boot sera instanciée trois fois avec des configurations légèrement différentes (une instance par front-end).
@@ -72,7 +72,8 @@ Spring-cloud-gateway étant une application réctive, ajouter des dépendances �
 - `com.c4-soft.springaddons:spring-addons-webflux-client`
 - `com.c4-soft.springaddons:spring-addons-webflux-ressource-server`
 
-Il faut ensuite fournir la configuration (changer le fichier properties en YAML) :
+#### 1.2.1 Configuration
+Voici l'`application.yaml` à utiliser
 ```yaml
 scheme: http
 oauth2-issuer: https://dev-ch4mpy.eu.auth0.com/
@@ -85,14 +86,7 @@ users-api-uri: ${scheme}://localhost:7085
 # en dev: https://openid-training.c4-soft.com (pour le deep link Android), http://localhost:3002 ou http://localhost:3003
 # en prod: https://openid-training.c4-soft.com
 ui-host: http://localhost:3002
-ui-path: /back-office/web
-# Rien pour le web (servi a travers la gateway) et "RedirectTo=301,${ui-host}${ui-path}" pour le mobile (ne pas oublier les guillemets)
-ui-filters:
-allowed-origins:
-- http://localhost:3002
-- http://localhost:3003
-- https://localhost:3402
-- https://localhost:3403
+allowed-origins: http://localhost, http://localhost:3000, http://localhost:3002, http://localhost:3003, https://localhost:3402, https://localhost:3403, http://localhost:7082, https://localhost:7082
 
 server:
   port: 8080
@@ -126,21 +120,36 @@ spring:
             - offline_access
   cloud:
     gateway:
+      httpclient:
+        wiretap: true
+      httpserver:
+        wiretap: true
       default-filters:
-      - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Access-Control-Request-Method Access-Control-Request-Headers
       routes:
       - id: home
         uri: ${gateway-uri}
         predicates:
         - Path=/
         filters:
-        - RedirectTo=301,${gateway-uri}${ui-path}
+        - RedirectTo=301,${gateway-uri}/ui
+      - id: redirect-to-app
+        uri: ${ui-host}
+        predicates:
+        - Path=/app
+        filters:
+        - RedirectTo=301,${ui-host}/app
       - id: ui
         uri: ${ui-host}
         predicates:
-        - Path=${ui-path}
-        filters: ${ui-filters}
+        - Path=/ui/**
       - id: greetings-api
+        uri: ${greetings-api-uri}
+        predicates:
+        - Path=/api/v1/greetings/**
+        filters:
+        - StripPrefix=2
+      - id: greetings-bff
         uri: ${greetings-api-uri}
         predicates:
         - Path=/bff/v1/greetings/**
@@ -149,6 +158,13 @@ spring:
         - SaveSession
         - StripPrefix=2
       - id: users-api
+        uri: ${users-api-uri}
+        predicates:
+        - Path=/api/v1/users/**
+        filters:
+        - StripPrefix=2
+        - RemoveRequestHeader=Origin
+      - id: users-bff
         uri: ${users-api-uri}
         predicates:
         - Path=/bff/v1/users/**
@@ -173,25 +189,29 @@ com:
           - path: $['https://c4-soft.com/authorities']
           - path: $.scope
             prefix: SCOPE_
+        cors:
         # OAuth2 client configuration
         client:
+          cors:
           client-uri: ${gateway-uri}
           security-matchers:
           - /login/**
           - /oauth2/**
           - /
           - /logout
-          - /api/**
-          - ${ui-path}/**
+          - /api/v1/**
+          - /bff/v1/**
+          - /ui/**
           permit-all:
           - /login/**
           - /oauth2/**
           - /
-          - /api/**
-          - ${ui-path}/**
+          - /api/v1/**
+          - /bff/v1/**
+          - /ui/**
           csrf: cookie-accessible-from-js
-          post-login-redirect-path: ${ui-path}
-          post-logout-redirect-path: ${ui-path}
+          post-login-redirect-path: /ui
+          post-logout-redirect-path: /ui
           back-channel-logout-enabled: true
           oauth2-logout:
           - client-registration-id: authorization-code
@@ -201,9 +221,6 @@ com:
         # OAuth2 resource server configuration
         csrf: disable
         statless-sessions: true
-        cors:
-        - path: /api/**
-          allowed-origins: ${allowed-origins}
         permit-all:
         - /v3/api-docs/**
         - /actuator/health/readiness
@@ -230,7 +247,10 @@ logging:
     root: INFO
     org:
       springframework:
-        security: INFO
+        security: TRACE
+        gateway:
+          handler:
+            RoutePredicateHandlerMapping: TRACE
     
 ---
 spring:
@@ -249,6 +269,65 @@ server:
 scheme: https
 ```
 
+#### 1.2.2 BFFController
+Le BFF exposera deux endpoints:
+- GET des URIs possibles pour initier un login utilisateur avec l'authorization-code flow
+- PUT pour terminer une session utilisateur (sur le BFF et sur l'OP)
+```java
+@RestController
+@Tag(name = "BFF")
+public class BffController {
+	private final ReactiveClientRegistrationRepository clientRegistrationRepository;
+	private final SpringAddonsOAuth2ClientProperties addonsClientProps;
+	private final LogoutRequestUriBuilder logoutRequestUriBuilder;
+	private final ServerSecurityContextRepository securityContextRepository = new WebSessionServerSecurityContextRepository();
+	private final List<LoginOptionDto> loginOptions;
+
+	public BffController(
+			OAuth2ClientProperties clientProps,
+			ReactiveClientRegistrationRepository clientRegistrationRepository,
+			SpringAddonsOAuth2ClientProperties addonsClientProps,
+			LogoutRequestUriBuilder logoutRequestUriBuilder) {
+		this.addonsClientProps = addonsClientProps;
+		this.clientRegistrationRepository = clientRegistrationRepository;
+		this.logoutRequestUriBuilder = logoutRequestUriBuilder;
+		this.loginOptions = clientProps.getRegistration().entrySet().stream().filter(e -> "authorization_code".equals(e.getValue().getAuthorizationGrantType()))
+				.map(e -> new LoginOptionDto(e.getValue().getProvider(), "%s/oauth2/authorization/%s".formatted(addonsClientProps.getClientUri(), e.getKey())))
+				.toList();
+	}
+
+	@GetMapping(path = "/login/options", produces = "application/json")
+	@Operation(operationId = "getLoginOptions")
+	public Mono<List<LoginOptionDto>> getLoginOptions(Authentication auth) throws URISyntaxException {
+		final boolean isAuthenticated = auth instanceof OAuth2AuthenticationToken;
+		return Mono.just(isAuthenticated ? List.of() : this.loginOptions);
+	}
+
+	@PutMapping(path = "/logout", produces = "application/json")
+	@Operation(operationId = "logout", responses = { @ApiResponse(responseCode = "204") })
+	public Mono<ResponseEntity<Void>> logout(ServerWebExchange exchange, Authentication authentication) {
+		final Mono<URI> uri;
+		if (authentication instanceof OAuth2AuthenticationToken oauth && oauth.getPrincipal() instanceof OidcUser oidcUser) {
+			uri = clientRegistrationRepository.findByRegistrationId(oauth.getAuthorizedClientRegistrationId()).map(clientRegistration -> {
+				final var uriString = logoutRequestUriBuilder
+						.getLogoutRequestUri(clientRegistration, oidcUser.getIdToken().getTokenValue(), addonsClientProps.getPostLogoutRedirectUri());
+				return StringUtils.hasText(uriString) ? URI.create(uriString) : addonsClientProps.getPostLogoutRedirectUri();
+			});
+		} else {
+			uri = Mono.just(addonsClientProps.getPostLogoutRedirectUri());
+		}
+		return uri.flatMap(logoutUri -> {
+			return securityContextRepository.save(exchange, null).thenReturn(logoutUri);
+		}).map(logoutUri -> {
+			return ResponseEntity.noContent().location(logoutUri).build();
+		});
+	}
+
+	static record LoginOptionDto(@NotEmpty String label, @NotEmpty String loginUri) {
+	}
+}
+```
+
 ### 1.3. Génération des Specs OpenAPI
 Le `springdoc-openapi-maven-plugin` est configuré dans le pom parent. Il est activé, pour chaque projet, avec le profile Maven `openapi`.
 
@@ -262,10 +341,8 @@ Voici les properties à surcharger avant de lancer les BFFs en dev:
 server.port=
 oauth2-client-id=
 oauth2-client-secret=
-spring.cloud.gateway.default-filters="DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin"
 ui-host=
-ui-path=
-ui-filters=
+spring.cloud.gateway.default-filters=DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
 ```
 
 Pour les resource servers, seul le port est nécessaire (`7084` pour la greetings-api et `7085` pour celle des users)
@@ -658,7 +735,7 @@ export default async function Home() {
 ```
 
 ```tsx
-import {useEffect, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   Button,
   Linking,
@@ -669,54 +746,96 @@ import {
   Text,
   View,
 } from 'react-native';
+
 import 'react-native-url-polyfill/auto';
-import {APIs} from './apis';
-import {UserInfoDto} from './c4-soft/users-api';
+import {APIs, bffApiConf} from './apis';
 
-const ANONYMOUS: UserInfoDto = {email: '', name: '', roles: []};
+class User {
+  constructor(
+    readonly email: string,
+    readonly name: string,
+    readonly roles: string[],
+  ) {}
 
-export default function App() {
+  get isAuthenticated(): boolean {
+    return !!this.email;
+  }
+}
+const ANONYMOUS = new User('', '', []);
+
+function App(): JSX.Element {
   const [currentUser, setCurrentUser] = useState(ANONYMOUS);
   const [greeting, setGreeting] = useState('');
 
   function login() {
-    console.log('login');
-    APIs.gateway
-      .getLoginOptions()
-      .then(async response => {
-        const loginUri = response.data[0].loginUri;
-        if (loginUri) {
-          console.log('redirect to ', loginUri);
-          await Linking.openURL(loginUri);
-        } else {
-          console.warn('no login URL. Already logged in? ', response);
-        }
-      })
-      .catch(reason => console.warn(reason));
-  }
-
-  function logout() {
-    APIs.gateway.logout().then(async response => {
-      const logoutUri = response.headers.location;
-      if (logoutUri) {
-        await Linking.openURL(logoutUri);
+    console.log('Get login options at: ', bffApiConf.basePath);
+    APIs.gateway.getLoginOptions().then(resp => {
+      if (resp.data.length > 0) {
+        console.log('Login at: ', resp.data[0]);
+        Linking.openURL(resp.data[0].loginUri);
+      } else {
+        console.warn('No login option. Already logged-in?');
       }
     });
   }
 
+  function logout() {
+    console.log('logout');
+    APIs.gateway.logout();
+    setCurrentUser(ANONYMOUS);
+  }
+
+  function refresh() {
+    console.log('Get user-info');
+    return APIs.users
+      .getInfo()
+      .then(userInfoResp => {
+        console.log('Set user with: ', userInfoResp.data);
+        setCurrentUser(
+          new User(
+            userInfoResp.data.email,
+            userInfoResp.data.name,
+            userInfoResp.data.roles,
+          ),
+        );
+      })
+      .catch(error => {
+        console.log('Failed to get userInfo: ', error);
+        setCurrentUser(ANONYMOUS);
+      })
+      .then(() => {
+        console.log('Get greeting');
+        APIs.greetings
+          .getGreeting()
+          .then(greetingResp => {
+            console.log('Got greeting: ', greetingResp.data);
+            setGreeting(greetingResp.data.message);
+          })
+          .catch(error => {
+            console.log('Failed to get greeting: ', error);
+            setGreeting('Bug!!!');
+          });
+      });
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
+      <StatusBar />
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         <Text>Formation OpenID</Text>
         <Text>Front-End React Native</Text>
         <View>
           <Text>{greeting}</Text>
-          {!currentUser.email ? (
+          {!currentUser.isAuthenticated ? (
             <Button onPress={login} title="Login" />
           ) : (
             <Button onPress={logout} title="Logout" />
           )}
+          <Button onPress={refresh} title="Refresh" />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -732,26 +851,7 @@ const styles = StyleSheet.create({
   },
 });
 
-function updateURLParameter(url: string, param: string, paramVal: string) {
-  var newAdditionalURL = '';
-  var tempArray = url.split('?');
-  var baseURL = tempArray[0];
-  var additionalURL = tempArray[1];
-  var temp = '';
-  if (additionalURL) {
-    tempArray = additionalURL.split('&');
-    for (var i = 0; i < tempArray.length; i++) {
-      if (tempArray[i].split('=')[0] !== param) {
-        newAdditionalURL += temp + tempArray[i];
-        temp = '&';
-      }
-    }
-  }
-
-  var rows_txt = temp + '' + param + '=' + paramVal;
-  return baseURL + '?' + newAdditionalURL + rows_txt;
-}
-
+export default App;
 ```
 ## 3. OpenID Providers
 Nous utiliserons Auth0 comme OP principal. Il aura pour responsabilité de fédérer les identités Keycloak.
