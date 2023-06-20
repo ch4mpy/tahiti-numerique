@@ -20,6 +20,15 @@
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <!-- Accepts URIs that begin with "https://mobile.front-office.openid-training.c4-soft.com/callback” -->
+        <data android:scheme="https"
+          android:host="mobile.front-office.openid-training.c4-soft.com"
+          android:pathPrefix="/callback" />
+      </intent-filter>
     </activity>
   </application>
 </manifest>

@@ -31,6 +31,26 @@ com:
           - path: $['https://c4-soft.com/authorities']
           - path: $.scope
             prefix: SCOPE_
+        - location: https://dev-kz80hiel8uxdrskc.us.auth0.com/
+          authorities:
+          - path: $.scope
+            prefix: SCOPE_
+        - location: https://dev-asouliman.us.auth0.com/
+          authorities:
+          - path: $.scope
+            prefix: SCOPE_
+        - location: https://dev-v8o77ok3puko7dfx.us.auth0.com/
+          authorities:
+          - path: $.scope
+            prefix: SCOPE_
+        - location: https://dev-gxakmaorbhkzyz45.us.auth0.com/
+          authorities:
+          - path: $.scope
+            prefix: SCOPE_
+        - location: https://dev-5quamlkydqkkh4y6.eu.auth0.com/
+          authorities:
+          - path: $.scope
+            prefix: SCOPE_
         permit-all:
         - "/users/me"
         - "/actuator/health/readiness"

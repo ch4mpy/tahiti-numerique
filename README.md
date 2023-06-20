@@ -785,7 +785,7 @@ Nous utiliserons Auth0 comme OP principal. Il aura pour responsabilité de féd�
 ### 3.2. Auth0
 - créez un compte gratuit si vous n'en possédez pas déjà un
 - dans `Applications` -> `APIs`
-  * ajouter une "API" nommée `OpenID Training users API` avec `https://openid-training.c4-soft.com/api/users`
+  * ajouter une "API" nommée `OpenID Training users API` avec `https://web.back-office.openid-training.c4-soft.com/api/v1/users`
   * dans l'onglet `Permissions`, ajouter  `roles:read`
 - déclarez les "applications" suivantes (ce sont en réalité des clients OAuth2 que nous configurons ici):
   * `OpenID Training BFF back-office` (Regular Web Application)
