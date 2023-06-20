@@ -85,14 +85,10 @@ users-api-uri: ${scheme}://localhost:7085
 # en dev: https://openid-training.c4-soft.com (pour le deep link Android), http://localhost:3002 ou http://localhost:3003
 # en prod: https://openid-training.c4-soft.com
 ui-host: http://localhost:3002
-ui-path: /back-office/web
+ui-path: /ui
 # Rien pour le web (servi a travers la gateway) et "RedirectTo=301,${ui-host}${ui-path}" pour le mobile (ne pas oublier les guillemets)
 ui-filters:
-allowed-origins:
-- http://localhost:3002
-- http://localhost:3003
-- https://localhost:3402
-- https://localhost:3403
+allowed-origins: http://localhost:3002, http://localhost:3003, https://localhost:3402, https://localhost:3403
 
 server:
   port: 8080
@@ -643,22 +639,23 @@ export default async function Home() {
 ```
 - `npm i`
 - `npx react-native start`
+- `npm i react-native-app-auth jwt-decode` (configuration en tant que "public" client OAuth2, pas "frontend" d'un BFF)
 
-- ajouter l'intent-filter suivant à la main-activitya
+- ajouter l'intent-filter suivant à la main-activity (`autoVerify` important, de même que l'enregistrement du domaine sur la [searcrh-console Google](https://search.google.com/search-console/welcome))
 ```xml
-      <intent-filter>
+      <intent-filter android:autoVerify="true">
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
-        <!-- Accepts URIs that begin with "https://mobile.front-office.openid-training.c4-soft.com/ui” -->
+        <!-- Accepts URIs that begin with "https://mobile.front-office.openid-training.c4-soft.com/callback” -->
         <data android:scheme="https"
           android:host="mobile.front-office.openid-training.c4-soft.com"
-          android:pathPrefix="/ui" />
+          android:pathPrefix="/callback”" />
       </intent-filter>
 ```
 
 ```tsx
-import {useEffect, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   Button,
   Linking,
@@ -669,54 +666,96 @@ import {
   Text,
   View,
 } from 'react-native';
+
 import 'react-native-url-polyfill/auto';
-import {APIs} from './apis';
-import {UserInfoDto} from './c4-soft/users-api';
+import {APIs, bffApiConf} from './apis';
 
-const ANONYMOUS: UserInfoDto = {email: '', name: '', roles: []};
+class User {
+  constructor(
+    readonly email: string,
+    readonly name: string,
+    readonly roles: string[],
+  ) {}
 
-export default function App() {
+  get isAuthenticated(): boolean {
+    return !!this.email;
+  }
+}
+const ANONYMOUS = new User('', '', []);
+
+function App(): JSX.Element {
   const [currentUser, setCurrentUser] = useState(ANONYMOUS);
   const [greeting, setGreeting] = useState('');
 
   function login() {
-    console.log('login');
-    APIs.gateway
-      .getLoginOptions()
-      .then(async response => {
-        const loginUri = response.data[0].loginUri;
-        if (loginUri) {
-          console.log('redirect to ', loginUri);
-          await Linking.openURL(loginUri);
-        } else {
-          console.warn('no login URL. Already logged in? ', response);
-        }
-      })
-      .catch(reason => console.warn(reason));
-  }
-
-  function logout() {
-    APIs.gateway.logout().then(async response => {
-      const logoutUri = response.headers.location;
-      if (logoutUri) {
-        await Linking.openURL(logoutUri);
+    console.log('Get login options at: ', bffApiConf.basePath);
+    APIs.gateway.getLoginOptions().then(resp => {
+      if (resp.data.length > 0) {
+        console.log('Login at: ', resp.data[0]);
+        Linking.openURL(resp.data[0].loginUri);
+      } else {
+        console.warn('No login option. Already logged-in?');
       }
     });
   }
 
+  function logout() {
+    console.log('logout');
+    APIs.gateway.logout();
+    setCurrentUser(ANONYMOUS);
+  }
+
+  function refresh() {
+    console.log('Get user-info');
+    return APIs.users
+      .getInfo()
+      .then(userInfoResp => {
+        console.log('Set user with: ', userInfoResp.data);
+        setCurrentUser(
+          new User(
+            userInfoResp.data.email,
+            userInfoResp.data.name,
+            userInfoResp.data.roles,
+          ),
+        );
+      })
+      .catch(error => {
+        console.log('Failed to get userInfo: ', error);
+        setCurrentUser(ANONYMOUS);
+      })
+      .then(() => {
+        console.log('Get greeting');
+        APIs.greetings
+          .getGreeting()
+          .then(greetingResp => {
+            console.log('Got greeting: ', greetingResp.data);
+            setGreeting(greetingResp.data.message);
+          })
+          .catch(error => {
+            console.log('Failed to get greeting: ', error);
+            setGreeting('Bug!!!');
+          });
+      });
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
+      <StatusBar />
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         <Text>Formation OpenID</Text>
         <Text>Front-End React Native</Text>
         <View>
           <Text>{greeting}</Text>
-          {!currentUser.email ? (
+          {!currentUser.isAuthenticated ? (
             <Button onPress={login} title="Login" />
           ) : (
             <Button onPress={logout} title="Logout" />
           )}
+          <Button onPress={refresh} title="Refresh" />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -732,26 +771,7 @@ const styles = StyleSheet.create({
   },
 });
 
-function updateURLParameter(url: string, param: string, paramVal: string) {
-  var newAdditionalURL = '';
-  var tempArray = url.split('?');
-  var baseURL = tempArray[0];
-  var additionalURL = tempArray[1];
-  var temp = '';
-  if (additionalURL) {
-    tempArray = additionalURL.split('&');
-    for (var i = 0; i < tempArray.length; i++) {
-      if (tempArray[i].split('=')[0] !== param) {
-        newAdditionalURL += temp + tempArray[i];
-        temp = '&';
-      }
-    }
-  }
-
-  var rows_txt = temp + '' + param + '=' + paramVal;
-  return baseURL + '?' + newAdditionalURL + rows_txt;
-}
-
+export default App;
 ```
 ## 3. OpenID Providers
 Nous utiliserons Auth0 comme OP principal. Il aura pour responsabilité de fédérer les identités Keycloak.

@@ -43,10 +43,6 @@ spring:
             - offline_access
   cloud:
     gateway:
-      httpclient:
-        wiretap: true
-      httpserver:
-        wiretap: true
       default-filters:
       - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Access-Control-Request-Method Access-Control-Request-Headers
       routes:
@@ -61,7 +57,7 @@ spring:
         predicates:
         - Path=/app
         filters:
-        - RedirectTo=301,${ui-host}/app
+        - RedirectTo=301,${ui-host}/ui
       - id: ui
         uri: ${ui-host}
         predicates:
