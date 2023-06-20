@@ -133,12 +133,6 @@ spring:
         - Path=/
         filters:
         - RedirectTo=301,${gateway-uri}/ui
-      - id: redirect-to-app
-        uri: ${ui-host}
-        predicates:
-        - Path=/app
-        filters:
-        - RedirectTo=301,${ui-host}/app
       - id: ui
         uri: ${ui-host}
         predicates:
@@ -720,17 +714,18 @@ export default async function Home() {
 ```
 - `npm i`
 - `npx react-native start`
+- `npm i react-native-app-auth jwt-decode` (configuration en tant que "public" client OAuth2, pas "frontend" d'un BFF)
 
-- ajouter l'intent-filter suivant à la main-activitya
+- ajouter l'intent-filter suivant à la main-activity (`autoVerify` important, de même que l'enregistrement du domaine sur la [searcrh-console Google](https://search.google.com/search-console/welcome))
 ```xml
-      <intent-filter>
+      <intent-filter android:autoVerify="true">
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
-        <!-- Accepts URIs that begin with "https://mobile.front-office.openid-training.c4-soft.com/ui” -->
+        <!-- Accepts URIs that begin with "https://mobile.front-office.openid-training.c4-soft.com/callback” -->
         <data android:scheme="https"
           android:host="mobile.front-office.openid-training.c4-soft.com"
-          android:pathPrefix="/ui" />
+          android:pathPrefix="/callback”" />
       </intent-filter>
 ```
 

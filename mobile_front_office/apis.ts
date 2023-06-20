@@ -14,10 +14,10 @@ export const bffApiConf = new BFFConfiguration({
   basePath: basePath,
 });
 export const greetingsApiConf = new GreetingsConfiguration({
-  basePath: basePath + '/bff/v1',
+  basePath: basePath + '/api/v1',
 });
 export const usersApiConf = new UsersConfiguration({
-  basePath: basePath + '/bff/v1',
+  basePath: basePath + '/api/v1',
 });
 
 export class APIs {
