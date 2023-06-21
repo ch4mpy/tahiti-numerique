@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +29,6 @@ import com.c4soft.openidtraining.usersapi.domain.UserRolesRepository;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotEmpty;
@@ -47,7 +47,7 @@ public class UsersController {
     @PreAuthorize("hasAnyAuthority('SCOPE_roles:read', 'USER_ROLES_EDITOR')")
     @Transactional(readOnly = true)
     public Collection<String> getRoles(@Parameter(schema = @Schema(type = "string", format = "email")) @PathVariable("email") Optional<UserRoles> userRoles) {
-        return userRoles.orElseThrow(() -> new EntityNotFoundException()).getRoles();
+        return userRoles.map(UserRoles::getRoles).orElse(Set.of());
     }
 
     @PutMapping("/{email}/roles")

@@ -72,8 +72,12 @@ class UsersControllerTest {
 
 	@Test
 	@OpenId("SCOPE_roles:read")
-	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfUnknownUser_thenNotFound() throws Exception {
-		api.get("/users/%s/roles".formatted("machin@truc")).andExpect(status().isNotFound());
+	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfUnknownUser_thenReturnEmptyCollection() throws Exception {
+		// @formatter:off
+		api.get("/users/%s/roles".formatted("machin@truc"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[*]").isEmpty());
+		// @formatter:on
 	}
 
 	@Test
