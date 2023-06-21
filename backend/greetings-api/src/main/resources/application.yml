@@ -29,7 +29,8 @@ com:
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
           - path: $['https://c4-soft.com/authorities']
-          - path: $.permissions
+          - path: $.scope
+            prefix: SCOPE_
         permit-all:
         - "/greetings/**"
         - "/actuator/health/readiness"

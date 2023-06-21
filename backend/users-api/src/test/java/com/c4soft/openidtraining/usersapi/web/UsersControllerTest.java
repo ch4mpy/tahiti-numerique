@@ -50,6 +50,7 @@ class UsersControllerTest {
 	@BeforeEach
 	void setUp() {
 		when(rolesRepo.findById(UserRolesFixtures.CH4MP.getEmail())).thenReturn(Optional.of(UserRolesFixtures.CH4MP));
+		when(rolesRepo.findById("machin@truc")).thenReturn(Optional.empty());
 		when(rolesRepo.save(any(UserRoles.class))).thenAnswer(invocation -> (UserRoles) invocation.getArgument(0));
 	}
 
@@ -60,20 +61,23 @@ class UsersControllerTest {
 	}
 
 	@ParameterizedTest
-	@OpenIdAuthenticationSource({@OpenId("SCOPE_roles:read"), @OpenId("USER_ROLES_EDITOR")})
-	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfExistingUser_thenRolesAreReturned(@ParameterizedOpenId OAuthentication<OpenidClaimSet> auth) throws Exception {
+	@OpenIdAuthenticationSource({ @OpenId("SCOPE_roles:read"), @OpenId("USER_ROLES_EDITOR") })
+	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfExistingUser_thenRolesAreReturned(
+			@ParameterizedOpenId OAuthentication<OpenidClaimSet> auth) throws Exception {
 		// @formatter:off
 		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[*]", containsInAnyOrder(UserRolesFixtures.CH4MP.getRoles().toArray())));
 		// @formatter:on
-		
+
 	}
 
 	@Test
 	@OpenId("SCOPE_roles:read")
-	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfUnknownUser_thenNotFound() throws Exception {
-		api.get("/users/%s/roles".formatted("machin@truc")).andExpect(status().isNotFound());
+	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfUnknownUser_thenReturnEmptyCollection()
+			throws Exception {
+		api.get("/users/%s/roles".formatted("machin@truc")).andExpect(status().isOk())
+				.andExpect(jsonPath("$[*]").isEmpty());
 	}
 
 	@Test

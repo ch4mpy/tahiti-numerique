@@ -43,4 +43,11 @@ class UsersApiApplicationTests {
 		// @formatter:on
 	}
 
+	@Test
+	@OpenId("SCOPE_roles:read")
+	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfUnknownUser_thenReturnEmptyCollection() throws Exception {
+		api.get("/users/%s/roles".formatted("machin@truc")).andExpect(status().isOk())
+		.andExpect(jsonPath("$[*]").isEmpty());
+	}
+
 }

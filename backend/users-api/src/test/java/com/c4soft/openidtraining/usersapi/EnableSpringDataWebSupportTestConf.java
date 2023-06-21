@@ -10,8 +10,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import com.c4soft.openidtraining.usersapi.domain.UserRoles;
 import com.c4soft.openidtraining.usersapi.domain.UserRolesRepository;
 
-import jakarta.persistence.EntityNotFoundException;
-
 /**
  * Avoid MethodArgumentConversionNotSupportedException with mocked repos
  *
@@ -20,6 +18,7 @@ import jakarta.persistence.EntityNotFoundException;
 @TestConfiguration
 @AutoConfigureDataJpa
 public class EnableSpringDataWebSupportTestConf {
+	
 	@Autowired
 	UserRolesRepository userRolesRepo;
 
@@ -29,7 +28,7 @@ public class EnableSpringDataWebSupportTestConf {
 
 			@Override
 			public void addFormatters(FormatterRegistry registry) {
-				registry.addConverter(String.class, UserRoles.class, id -> userRolesRepo.findById(id).orElseThrow(() -> new EntityNotFoundException()));
+				registry.addConverter(String.class, UserRoles.class, id -> userRolesRepo.findById(id).orElse(null));
 			}
 		};
 	}
