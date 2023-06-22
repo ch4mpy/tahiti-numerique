@@ -212,6 +212,10 @@ com:
             uri: ${oauth2-issuer}v2/logout
             client-id-request-param: client_id
             post-logout-uri-request-param: returnTo
+          authorization-request-params:
+            authorization-code:
+            - name: audience
+              value: https://openid-training.c4-soft.com
         # OAuth2 resource server configuration
         csrf: disable
         statless-sessions: true
@@ -860,13 +864,13 @@ Nous utiliserons Auth0 comme OP principal. Il aura pour responsabilité de féd�
 ### 3.2. Auth0
 - créez un compte gratuit si vous n'en possédez pas déjà un
 - dans `Applications` -> `APIs`
-  * ajouter une "API" nommée `OpenID Training users API` avec `https://openid-training.c4-soft.com/api/users`
+  * ajouter une "API" nommée `OpenID Training API` avec `https://openid-training.c4-soft.com` comme identifiant
   * dans l'onglet `Permissions`, ajouter  `roles:read`
 - déclarez les "applications" suivantes (ce sont en réalité des clients OAuth2 que nous configurons ici):
   * `OpenID Training BFF back-office` (Regular Web Application)
   * `OpenID Training BFF front-office` (Regular Web Application)
-  * `OpenID Training BFF mobile` (Regular Web Application)
-  * `OpenID Training users roles API` (Machine to Machine). Dans l'onglet `APIs`, activer `OpenID Training users API`, puis déplier le détail de cette API pour activer la permission `roles:read`
+  * `OpenID Training BFF mobile` (Native)
+  * `OpenID Training users roles action` (Machine to Machine). Dans l'onglet `APIs`, activer `OpenID Training API`, puis déplier le détail de cette API pour activer la permission `roles:read`
 - dans `Authentication` -> `Social`, créer un connection "custom" (tout en bas). 
   * les endpoints importants sont fournis par le `.well-known/openid-configuration` de l'OP à fédérer
   * dans la section `Scope`, indiquer `openid profile email`
@@ -921,10 +925,8 @@ exports.onExecutePostLogin = async (event, api) => {
 const axios = require('axios');
 
 exports.onExecutePostLogin = async (event, api) => {
-  // console.log(event.user.email)
-
   const namespace = 'https://c4-soft.com'
-  const audience = 'https://web.back-office.openid-training.c4-soft.com'
+  const audience = 'https://openid-training.c4-soft.com'
   const tokenUri = 'https://dev-ch4mpy.eu.auth0.com/oauth/token'
   const rolesUri = `https://web.back-office.openid-training.c4-soft.com/api/v1/users/${event.user.email}/roles`
   
@@ -946,7 +948,7 @@ exports.onExecutePostLogin = async (event, api) => {
     return err; // FIXME: remove for prod
   });
   const access_token = tokenRes.data.access_token;
-  // console.log("GET token: ", tokenRes.status, " data: ", tokenRes.data);
+  //console.log("GET token: ", tokenRes.status, " data: ", tokenRes.data);
 
   const userRolesRequest = {
     method: "GET",
@@ -956,13 +958,14 @@ exports.onExecutePostLogin = async (event, api) => {
       Authorization: `Bearer ${access_token}`,
     },
   };
-  // console.log("GET roles at ", rolesUri)
+  //console.log("GET roles at ", rolesUri)
   const rolesRes = await axios(userRolesRequest).catch((err) => {
     console.log(err);
     return err; // FIXME: remove for prod
   });
-  // console.log("GET roles", rolesRes.status, " data: ", rolesRes.data);
+  //console.log("GET roles", rolesRes.status, " data: ", rolesRes.data);
 
+  api.accessToken.setCustomClaim(`${namespace}/authorities`, rolesRes.data);
   api.idToken.setCustomClaim(`${namespace}/authorities`, rolesRes.data);
 };
 ```

@@ -107,3 +107,6 @@
 # typescript
 **/*.tsbuildinfo
 **/next-env.d.ts
+
+client-spring/**
+resource-server-spring/**
