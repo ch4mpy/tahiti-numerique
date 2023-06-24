@@ -6,8 +6,6 @@ oauth2-client-secret: change-me
 gateway-uri: ${scheme}://localhost:${server.port}
 greetings-api-uri: ${scheme}://localhost:7084
 users-api-uri: ${scheme}://localhost:7085
-# en dev: https://openid-training.c4-soft.com (pour le deep link Android), http://localhost:3002 ou http://localhost:3003
-# en prod: https://openid-training.c4-soft.com
 ui-host: http://localhost:3002
 allowed-origins: http://localhost, http://localhost:3000, http://localhost:3002, http://localhost:3003, https://localhost:3402, https://localhost:3403, http://localhost:7082, https://localhost:7082
 
@@ -134,7 +132,7 @@ com:
           authorization-request-params:
             authorization-code:
             - name: audience
-              value: https://openid-training.c4-soft.com
+              value: openid-training.c4-soft.com
         # OAuth2 resource server configuration
         csrf: disable
         statless-sessions: true
