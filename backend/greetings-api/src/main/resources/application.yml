@@ -26,6 +26,8 @@ com:
           allowed-origins: ${allowed-origins}
         issuers:
         - location: ${oauth2-issuer}
+          # Optional: activate audience validation on JWT decoder
+          audience: openid-training.c4-soft.com
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
           - path: $['https://c4-soft.com/authorities']

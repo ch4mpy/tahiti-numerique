@@ -82,8 +82,6 @@ oauth2-client-secret: change-me
 gateway-uri: ${scheme}://localhost:${server.port}
 greetings-api-uri: ${scheme}://localhost:7084
 users-api-uri: ${scheme}://localhost:7085
-# en dev: https://openid-training.c4-soft.com (pour le deep link Android), http://localhost:3002 ou http://localhost:3003
-# en prod: https://openid-training.c4-soft.com
 ui-host: http://localhost:3002
 ui-path: /ui
 # Rien pour le web (servi a travers la gateway) et "RedirectTo=301,${ui-host}${ui-path}" pour le mobile (ne pas oublier les guillemets)
@@ -197,7 +195,7 @@ com:
           authorization-request-params:
             authorization-code:
             - name: audience
-              value: https://openid-training.c4-soft.com
+              value: openid-training.c4-soft.com
         # OAuth2 resource server configuration
         csrf: disable
         statless-sessions: true
@@ -283,7 +281,7 @@ Nous allons créer deux applications distinctes:
 ### 2.1.1. SPA Next.js Back-Office
 - `npx create-next-app@latest web-back-office`
 - `cd web-back-office`
-- `basePath: '/back-office/web'` à la `nextConfig` (fichier `next.config.js`): l'application next sera servie à travers le BFF, à partir de `https://localhost:7082/back-office/web` (ou `https://openid-training.c4-soft.com/web-back-office/back-office/web` en prod)
+- `basePath: '/ui'` à la `nextConfig` (fichier `next.config.js`): l'application next sera servie à travers le BFF, à partir de `https://localhost:7082/ui` (ou `https://web.back-office.openid-training.c4-soft.com/ui` en prod)
 - `npm i -D @openapitools/openapi-generator-cli`
 - `npm i axios @mui/material @mui/icons-material @emotion/react @emotion/styled`
 - dans le package.json, définir un port spécifique pour le back-office en dev: `"dev": "next dev -p 3002"`
@@ -293,7 +291,7 @@ Nous allons créer deux applications distinctes:
     * `"generate:users-api": "npx openapi-generator-cli generate -i ../users-api.openapi.json -g typescript-axios --type-mappings AnyType=any --type-mappings date=Date --type-mappings DateTime=Date --additional-properties=serviceSuffix=Api,npmName=@c4-soft/users-api,npmVersion=0.0.1,stringEnums=true,enumPropertyNaming=camelCase,supportsES6=true,withInterfaces=true --remove-operation-id-prefix -o c4-soft/users-api"`
     * `"api": "npm run generate:bff-api && npm run generate:greetings-api && npm run generate:users-api"`
 - `npm i`
-- créer un fichier `.env.development` contenant `NEXT_PUBLIC_BFF_BASE_PATH=https://localhost:7082/bff` et un autre `.env.production` contenant `NEXT_PUBLIC_BFF_BASE_PATH=https://openid-training.c4-soft.com/bff`
+- créer un fichier `.env.development` contenant `NEXT_PUBLIC_BFF_BASE_PATH=https://localhost:7082` et un autre `.env.production` contenant `NEXT_PUBLIC_BFF_BASE_PATH=https://web.back-office.openid-training.c4-soft.com`
 - créer un helper pour les trois libs clientes générées à partir des specs OpenAPI:
 ```ts
 import { BFFApi, Configuration as BFFConfiguration } from "@/c4-soft/bff-api";
@@ -789,13 +787,13 @@ Nous utiliserons Auth0 comme OP principal. Il aura pour responsabilité de féd�
 ### 3.2. Auth0
 - créez un compte gratuit si vous n'en possédez pas déjà un
 - dans `Applications` -> `APIs`
-  * ajouter une "API" nommée `OpenID Training API` avec `https://openid-training.c4-soft.com` comme identifiant
+  * ajouter une "API" avec `openid-training.c4-soft.com` comme nom et identifiant
   * dans l'onglet `Permissions`, ajouter  `roles:read`
 - déclarez les "applications" suivantes (ce sont en réalité des clients OAuth2 que nous configurons ici):
   * `OpenID Training BFF back-office` (Regular Web Application)
   * `OpenID Training BFF front-office` (Regular Web Application)
   * `OpenID Training BFF mobile` (Native)
-  * `OpenID Training users roles action` (Machine to Machine). Dans l'onglet `APIs`, activer `OpenID Training API`, puis déplier le détail de cette API pour activer la permission `roles:read`
+  * `OpenID Training users roles action` (Machine to Machine). Dans l'onglet `APIs`, activer `openid-training.c4-soft.com`, puis déplier le détail de cette API pour activer la permission `roles:read`
 - dans `Authentication` -> `Social`, créer un connection "custom" (tout en bas). 
   * les endpoints importants sont fournis par le `.well-known/openid-configuration` de l'OP à fédérer
   * dans la section `Scope`, indiquer `openid profile email`
@@ -851,7 +849,7 @@ const axios = require('axios');
 
 exports.onExecutePostLogin = async (event, api) => {
   const namespace = 'https://c4-soft.com'
-  const audience = 'https://openid-training.c4-soft.com'
+  const audience = 'openid-training.c4-soft.com'
   const tokenUri = 'https://dev-ch4mpy.eu.auth0.com/oauth/token'
   const rolesUri = `https://web.back-office.openid-training.c4-soft.com/api/v1/users/${event.user.email}/roles`
   
