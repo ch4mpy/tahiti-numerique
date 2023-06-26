@@ -23,16 +23,13 @@ import org.springframework.security.test.context.support.WithAnonymousUser;
 
 import com.c4_soft.springaddons.security.oauth2.OAuthentication;
 import com.c4_soft.springaddons.security.oauth2.OpenidClaimSet;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.Claims;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.NestedClaims;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenId;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.StringClaim;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.parameterized.OpenIdAuthenticationSource;
 import com.c4_soft.springaddons.security.oauth2.test.annotations.parameterized.ParameterizedOpenId;
 import com.c4_soft.springaddons.security.oauth2.test.mockmvc.MockMvcSupport;
 import com.c4soft.openidtraining.usersapi.EnableSpringDataWebSupportTestConf;
 import com.c4soft.openidtraining.usersapi.SecuredTest;
+import com.c4soft.openidtraining.usersapi.TestAsCh4mp;
 import com.c4soft.openidtraining.usersapi.domain.UserRoles;
 import com.c4soft.openidtraining.usersapi.domain.UserRolesRepository;
 
@@ -92,9 +89,8 @@ class UsersControllerTest {
 		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail())).andExpect(status().isUnauthorized());
 	}
 
-	@Test
-	@OpenId("USER_ROLES_EDITOR")
-	void givenUserIsGrantedWithUserRolesEditor_whenSetUserRoles_thenRolesAreUpdated() throws Exception {
+	@TestAsCh4mp
+	void givenUserIsCh4mp_whenSetUserRoles_thenRolesAreUpdated() throws Exception {
 		api.put(List.of("MACHIN", "TRUC"), "/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
 				.andExpect(status().isAccepted());
 		verify(rolesRepo).save(new UserRoles(UserRolesFixtures.CH4MP.getEmail(), Set.of("MACHIN", "TRUC")));
@@ -139,24 +135,18 @@ class UsersControllerTest {
 	}
 
 	// @formatter:off
-	@Test
-	@OpenId(authorities = { "MACHIN","TRUC" },
-			claims = @OpenIdClaims(
-				otherClaims = @Claims(
-					nestedClaims = @NestedClaims(name = "https://c4-soft.com/user", stringClaims = {
-						@StringClaim(name = "name", value = "ch4mpy"),
-						@StringClaim(name = "email", value = "ch4mp@c4-soft.com")}))))
-	void givenRequestIsAuthenticated_whenGetMe_thenReturnData() throws Exception {
+	@TestAsCh4mp
+	void givenRequestIsCh4mp_whenGetMe_thenReturnData() throws Exception {
 		api.get("/users/me")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.name", is("ch4mpy")))
+			.andExpect(jsonPath("$.name", is("ch4mp")))
 			.andExpect(jsonPath("$.email", is("ch4mp@c4-soft.com")))
-			.andExpect(jsonPath("$.roles", containsInAnyOrder("MACHIN", "TRUC")));
+			.andExpect(jsonPath("$.roles", containsInAnyOrder("USER_ROLES_EDITOR", "AUTHOR")));
 	}
 	// @formatter:on
 
 	static final class UserRolesFixtures {
-		public static final UserRoles CH4MP = new UserRoles("ch4mp@c4-soft.com", Set.of("NICE", "AUTHOR"));
+		public static final UserRoles CH4MP = new UserRoles("ch4mp@c4-soft.com", Set.of("USER_ROLES_EDITOR", "AUTHOR"));
 	}
 
 }
