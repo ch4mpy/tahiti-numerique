@@ -26,11 +26,7 @@
 		</dependency>
 		<dependency>
 			<groupId>com.c4-soft.springaddons</groupId>
-			<artifactId>spring-addons-webflux-client</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>com.c4-soft.springaddons</groupId>
-			<artifactId>spring-addons-webflux-jwt-resource-server</artifactId>
+			<artifactId>spring-addons-starter-oidc</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>io.swagger.core.v3</groupId>
@@ -50,6 +46,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.c4-soft.springaddons</groupId>
+			<artifactId>spring-addons-starter-oidc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

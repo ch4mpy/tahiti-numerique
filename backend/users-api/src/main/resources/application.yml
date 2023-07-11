@@ -20,44 +20,45 @@ spring:
 com:
   c4-soft:
     springaddons:
-      security:
-        cors:
-        - path: /users/**
-          allowed-origins: ${allowed-origins}
-        issuers:
-        - location: ${oauth2-issuer}
+      oidc:
+        ops:
+        - iss: ${oauth2-issuer}
           # Optional: activate audience validation on JWT decoder
-          audience: openid-training.c4-soft.com
+          aud: openid-training.c4-soft.com
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
           - path: $['https://c4-soft.com/authorities']
           - path: $.scope
             prefix: SCOPE_
-        - location: https://dev-kz80hiel8uxdrskc.us.auth0.com/
+        - iss: https://dev-kz80hiel8uxdrskc.us.auth0.com/
           authorities:
           - path: $.scope
             prefix: SCOPE_
-        - location: https://dev-asouliman.us.auth0.com/
+        - iss: https://dev-asouliman.us.auth0.com/
           authorities:
           - path: $.scope
             prefix: SCOPE_
-        - location: https://dev-v8o77ok3puko7dfx.us.auth0.com/
+        - iss: https://dev-v8o77ok3puko7dfx.us.auth0.com/
           authorities:
           - path: $.scope
             prefix: SCOPE_
-        - location: https://dev-gxakmaorbhkzyz45.us.auth0.com/
+        - iss: https://dev-gxakmaorbhkzyz45.us.auth0.com/
           authorities:
           - path: $.scope
             prefix: SCOPE_
-        - location: https://dev-5quamlkydqkkh4y6.eu.auth0.com/
+        - iss: https://dev-5quamlkydqkkh4y6.eu.auth0.com/
           authorities:
           - path: $.scope
             prefix: SCOPE_
-        permit-all:
-        - "/users/me"
-        - "/actuator/health/readiness"
-        - "/actuator/health/liveness"
-        - "/v3/api-docs/**"
+        resourceserver:
+          cors:
+          - path: /users/**
+            allowed-origin-patterns: ${allowed-origins}
+          permit-all:
+          - "/users/me"
+          - "/actuator/health/readiness"
+          - "/actuator/health/liveness"
+          - "/v3/api-docs/**"
         
 management:
   endpoint:

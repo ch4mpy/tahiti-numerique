@@ -97,17 +97,15 @@ spring:
 com:
   c4-soft:
     springaddons:
-      security:
+      oidc:
         # Global OAuth2 configuration
-        issuers:
-        - location: ${oauth2-issuer}
+        ops:
+        - iss: ${oauth2-issuer}
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
           - path: $['https://c4-soft.com/authorities']
           - path: $.scope
             prefix: SCOPE_
-        cors:
-        # OAuth2 client configuration
         client:
           cors:
           client-uri: ${gateway-uri}
@@ -116,37 +114,34 @@ com:
           - /oauth2/**
           - /
           - /logout
-          - /api/v1/**
           - /bff/v1/**
-          - /ui/**
           permit-all:
           - /login/**
           - /oauth2/**
           - /
-          - /api/v1/**
           - /bff/v1/**
-          - /ui/**
           csrf: cookie-accessible-from-js
           post-login-redirect-path: /ui
           post-logout-redirect-path: /ui
           back-channel-logout-enabled: true
           oauth2-logout:
-          - client-registration-id: authorization-code
-            uri: ${oauth2-issuer}v2/logout
-            client-id-request-param: client_id
-            post-logout-uri-request-param: returnTo
+            authorization-code:
+              uri: ${oauth2-issuer}v2/logout
+              client-id-request-param: client_id
+              post-logout-uri-request-param: returnTo
           authorization-request-params:
             authorization-code:
             - name: audience
               value: openid-training.c4-soft.com
         # OAuth2 resource server configuration
-        csrf: disable
-        statless-sessions: true
-        permit-all:
-        - /v3/api-docs/**
-        - /actuator/health/readiness
-        - /actuator/health/liveness
-        - /.well-known/acme-challenge/**
+        resourceserver:
+          permit-all:
+          - /ui/**
+          - /api/v1/**
+          - /v3/api-docs/**
+          - /actuator/health/readiness
+          - /actuator/health/liveness
+          - /.well-known/acme-challenge/**
             
 management:
   endpoint:

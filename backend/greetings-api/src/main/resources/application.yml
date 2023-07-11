@@ -20,23 +20,24 @@ spring:
 com:
   c4-soft:
     springaddons:
-      security:
-        cors:
-        - path: /greetings/**
-          allowed-origins: ${allowed-origins}
-        issuers:
-        - location: ${oauth2-issuer}
+      oidc:
+        ops:
+        - iss: ${oauth2-issuer}
           # Optional: activate audience validation on JWT decoder
-          audience: openid-training.c4-soft.com
+          aud: openid-training.c4-soft.com
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
           - path: $['https://c4-soft.com/authorities']
           - path: $.permissions
-        permit-all:
-        - "/greetings/**"
-        - "/actuator/health/readiness"
-        - "/actuator/health/liveness"
-        - "/v3/api-docs/**"
+        resourceserver:
+          cors:
+          - path: /greetings/**
+            allowed-origin-patterns: ${allowed-origins}
+          permit-all:
+          - "/greetings/**"
+          - "/actuator/health/readiness"
+          - "/actuator/health/liveness"
+          - "/v3/api-docs/**"
         
 management:
   endpoint:

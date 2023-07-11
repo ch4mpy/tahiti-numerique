@@ -21,8 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.c4_soft.springaddons.security.oauth2.OAuthentication;
-import com.c4_soft.springaddons.security.oauth2.UnmodifiableClaimSet;
+import com.c4_soft.springaddons.security.oidc.OAuthentication;
+import com.c4_soft.springaddons.security.oidc.UnmodifiableClaimSet;
 import com.c4soft.openidtraining.usersapi.domain.UserRoles;
 import com.c4soft.openidtraining.usersapi.domain.UserRolesRepository;
 
