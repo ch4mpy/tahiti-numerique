@@ -136,7 +136,7 @@ class UsersControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.name", is("ch4mp")))
 			.andExpect(jsonPath("$.email", is("ch4mp@c4-soft.com")))
-			.andExpect(jsonPath("$.roles", containsInAnyOrder("USER_ROLES_EDITOR", "AUTHOR")));
+			.andExpect(jsonPath("$.roles", containsInAnyOrder("USER_ROLES_EDITOR", "AUTHOR", "SCOPE_openid", "SCOPE_email")));
 	}
 	// @formatter:on
 
