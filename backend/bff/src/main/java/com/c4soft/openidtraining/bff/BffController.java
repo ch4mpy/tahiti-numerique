@@ -18,8 +18,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 
-import com.c4_soft.springaddons.security.oauth2.config.LogoutRequestUriBuilder;
-import com.c4_soft.springaddons.security.oauth2.config.SpringAddonsOAuth2ClientProperties;
+import com.c4_soft.springaddons.security.oidc.starter.LogoutRequestUriBuilder;
+import com.c4_soft.springaddons.security.oidc.starter.properties.SpringAddonsOidcClientProperties;
+import com.c4_soft.springaddons.security.oidc.starter.properties.SpringAddonsOidcProperties;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -31,7 +32,7 @@ import reactor.core.publisher.Mono;
 @Tag(name = "BFF")
 public class BffController {
 	private final ReactiveClientRegistrationRepository clientRegistrationRepository;
-	private final SpringAddonsOAuth2ClientProperties addonsClientProps;
+	private final SpringAddonsOidcClientProperties addonsClientProps;
 	private final LogoutRequestUriBuilder logoutRequestUriBuilder;
 	private final ServerSecurityContextRepository securityContextRepository = new WebSessionServerSecurityContextRepository();
 	private final List<LoginOptionDto> loginOptions;
@@ -39,13 +40,13 @@ public class BffController {
 	public BffController(
 			OAuth2ClientProperties clientProps,
 			ReactiveClientRegistrationRepository clientRegistrationRepository,
-			SpringAddonsOAuth2ClientProperties addonsClientProps,
+			SpringAddonsOidcProperties addonsClientProps,
 			LogoutRequestUriBuilder logoutRequestUriBuilder) {
-		this.addonsClientProps = addonsClientProps;
+		this.addonsClientProps = addonsClientProps.getClient();
 		this.clientRegistrationRepository = clientRegistrationRepository;
 		this.logoutRequestUriBuilder = logoutRequestUriBuilder;
 		this.loginOptions = clientProps.getRegistration().entrySet().stream().filter(e -> "authorization_code".equals(e.getValue().getAuthorizationGrantType()))
-				.map(e -> new LoginOptionDto(e.getValue().getProvider(), "%s/oauth2/authorization/%s".formatted(addonsClientProps.getClientUri(), e.getKey())))
+				.map(e -> new LoginOptionDto(e.getValue().getProvider(), "%s/oauth2/authorization/%s".formatted(this.addonsClientProps.getClientUri(), e.getKey())))
 				.toList();
 	}
 

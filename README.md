@@ -16,8 +16,8 @@ Voici les URLs de "prod" :
 - https://web.back-office.openid-training.c4-soft.com/ui : application Next.js "front-office"
 - /bff/v1/greetings : accès à l'API `greetings` pour les frontends web & mobile (requêtes avec session)
 - /bff/v1/users : accès à l'API `users` pour les frontends web & mobile (requêtes avec session)
-- /api/v1/greetings : accès à l'API `greetings` pour les clients OAuth2 (requêtes avec access token)
-- /api/v1/users : accès à l'API `users` pour les clients OAuth2 (requêtes avec access token)
+- /resource-server/v1/greetings : accès à l'API `greetings` pour les clients OAuth2 (requêtes avec access token)
+- /resource-server/v1/users : accès à l'API `users` pour les clients OAuth2 (requêtes avec access token)
 - /login/options : endpoint exposant les URIs possibles pour initier l'authenticafication d'un utilisateur
 - /logout : endpoint pour terminer une session utilisateur
 
@@ -41,19 +41,19 @@ Cette API construit un message à partir d'informations contenues dans le `Secur
 Cette API a pour but de retourner les roles d'un utilisateur donné. 
 
 Voici les éléments de configuration à implémenter (utiliser la "Greetings API" ou [cet autre exemple](https://github.com/ch4mpy/spring-addons/tree/master/samples/webmvc-jwt-default)) :
-- ajouter [`com.c4-soft.springaddons:spring-addons-webmvc-jwt-resource-server`](https://central.sonatype.com/artifact/com.c4-soft.springaddons/spring-addons-webmvc-jwt-resource-server/6.1.11) aux dépendances
+- ajouter [`com.c4-soft.springaddons:spring-addons-starter-oidc`](https://repo1.maven.org/maven2/com/c4-soft/springaddons/spring-addons-starter-oidc/) aux dépendances
 - configuration `resource server` qui utilise les claims suivantes comme source pour les authorities Spring
   * `scope` en ajoutant le préfixe `SCOPE_`
   * `$['https://c4-soft.com/authorities']` sans préfixe
 - Auht0 comme issuer
 
 Il faut ensuite implémenter le endpoint qui expose en lecture les roles d'un utilisateur donné :
-- exposer un endpoint REST GET pour le path `/users/{email}/roles` qui retourne un DTO contenant une liste de roles
+- exposer un endpoint REST GET pour le path `/v1/users/{email}/roles` qui retourne un DTO contenant une liste de roles
 - rendre le endpoint accessible uniquement aux requêtes authorisées avec les authorities `SCOPE_roles:read` ou `USER_ROLES_EDITOR`
 - jouer les tests unitaires pour valider votre l'implémentation.
 
 
-### 1.2. BFF
+### 1.2. BFFs
 Les Backends For Frontends sont des middlewares sur le serveur configurés comme clients OAuth2 et faisant le pont entre une sécurité basée sur des sessions (front-ends web & mobile) et une basée sur des "access tokens" OAuth2 (resource serveurs).
 
 Nous utiliserons `spring-cloud-gateway` avec le filtre `TokenRelay` et un starter Spring Boot pour la configuration OAuth2 "cliente". La même application Spring Boot sera instanciée trois fois avec des configurations légèrement différentes (une instance par front-end).
@@ -72,8 +72,7 @@ Spring-cloud-gateway étant une application réctive, ajouter des dépendances �
 - `com.c4-soft.springaddons:spring-addons-webflux-client`
 - `com.c4-soft.springaddons:spring-addons-webflux-ressource-server`
 
-#### 1.2.1 Configuration
-Voici l'`application.yaml` à utiliser
+Il faut ensuite fournir la configuration (changer le fichier properties en YAML) :
 ```yaml
 scheme: http
 oauth2-issuer: https://dev-ch4mpy.eu.auth0.com/
@@ -84,7 +83,10 @@ gateway-uri: ${scheme}://localhost:${server.port}
 greetings-api-uri: ${scheme}://localhost:7084
 users-api-uri: ${scheme}://localhost:7085
 ui-host: http://localhost:3002
-allowed-origins: http://localhost, http://localhost:3000, http://localhost:3002, http://localhost:3003, https://localhost:3402, https://localhost:3403, http://localhost:7082, https://localhost:7082
+ui-path: /ui
+# Rien pour le web (servi a travers la gateway) et "RedirectTo=301,${ui-host}${ui-path}" pour le mobile (ne pas oublier les guillemets)
+ui-filters:
+allowed-origins: http://localhost:3002, http://localhost:3003, https://localhost:3402, https://localhost:3403
 
 server:
   port: 8080
@@ -118,10 +120,6 @@ spring:
             - offline_access
   cloud:
     gateway:
-      httpclient:
-        wiretap: true
-      httpserver:
-        wiretap: true
       default-filters:
       - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Access-Control-Request-Method Access-Control-Request-Headers
       routes:
@@ -131,14 +129,20 @@ spring:
         - Path=/
         filters:
         - RedirectTo=301,${gateway-uri}/ui
+      - id: redirect-to-app
+        uri: ${ui-host}
+        predicates:
+        - Path=/app
+        filters:
+        - RedirectTo=301,${ui-host}/ui
       - id: ui
         uri: ${ui-host}
         predicates:
         - Path=/ui/**
-      - id: greetings-api
+      - id: greetings-resource-server
         uri: ${greetings-api-uri}
         predicates:
-        - Path=/api/v1/greetings/**
+        - Path=/resource-server/v1/greetings/**
         filters:
         - StripPrefix=2
       - id: greetings-bff
@@ -149,10 +153,10 @@ spring:
         - TokenRelay=
         - SaveSession
         - StripPrefix=2
-      - id: users-api
+      - id: users-resource-server
         uri: ${users-api-uri}
         predicates:
-        - Path=/api/v1/users/**
+        - Path=/resource-server/v1/users/**
         filters:
         - StripPrefix=2
         - RemoveRequestHeader=Origin
@@ -172,17 +176,15 @@ spring:
 com:
   c4-soft:
     springaddons:
-      security:
+      oidc:
         # Global OAuth2 configuration
-        issuers:
-        - location: ${oauth2-issuer}
+        ops:
+        - iss: ${oauth2-issuer}
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
           - path: $['https://c4-soft.com/authorities']
           - path: $.scope
             prefix: SCOPE_
-        cors:
-        # OAuth2 client configuration
         client:
           cors:
           client-uri: ${gateway-uri}
@@ -191,37 +193,33 @@ com:
           - /oauth2/**
           - /
           - /logout
-          - /api/v1/**
-          - /bff/v1/**
-          - /ui/**
+          - /bff/**
           permit-all:
           - /login/**
           - /oauth2/**
           - /
-          - /api/v1/**
-          - /bff/v1/**
-          - /ui/**
+          - /bff/**
           csrf: cookie-accessible-from-js
           post-login-redirect-path: /ui
           post-logout-redirect-path: /ui
-          back-channel-logout-enabled: true
           oauth2-logout:
-          - client-registration-id: authorization-code
-            uri: ${oauth2-issuer}v2/logout
-            client-id-request-param: client_id
-            post-logout-uri-request-param: returnTo
+            authorization-code:
+              uri: ${oauth2-issuer}v2/logout
+              client-id-request-param: client_id
+              post-logout-uri-request-param: returnTo
           authorization-request-params:
             authorization-code:
             - name: audience
               value: openid-training.c4-soft.com
         # OAuth2 resource server configuration
-        csrf: disable
-        statless-sessions: true
-        permit-all:
-        - /v3/api-docs/**
-        - /actuator/health/readiness
-        - /actuator/health/liveness
-        - /.well-known/acme-challenge/**
+        resourceserver:
+          permit-all:
+          - /ui/**
+          - /resource-server/**
+          - /v3/api-docs/**
+          - /actuator/health/readiness
+          - /actuator/health/liveness
+          - /.well-known/acme-challenge/**
             
 management:
   endpoint:
@@ -243,10 +241,7 @@ logging:
     root: INFO
     org:
       springframework:
-        security: TRACE
-        gateway:
-          handler:
-            RoutePredicateHandlerMapping: TRACE
+        security: INFO
     
 ---
 spring:
@@ -265,65 +260,6 @@ server:
 scheme: https
 ```
 
-#### 1.2.2 BFFController
-Le BFF exposera deux endpoints:
-- GET des URIs possibles pour initier un login utilisateur avec l'authorization-code flow
-- PUT pour terminer une session utilisateur (sur le BFF et sur l'OP)
-```java
-@RestController
-@Tag(name = "BFF")
-public class BffController {
-	private final ReactiveClientRegistrationRepository clientRegistrationRepository;
-	private final SpringAddonsOAuth2ClientProperties addonsClientProps;
-	private final LogoutRequestUriBuilder logoutRequestUriBuilder;
-	private final ServerSecurityContextRepository securityContextRepository = new WebSessionServerSecurityContextRepository();
-	private final List<LoginOptionDto> loginOptions;
-
-	public BffController(
-			OAuth2ClientProperties clientProps,
-			ReactiveClientRegistrationRepository clientRegistrationRepository,
-			SpringAddonsOAuth2ClientProperties addonsClientProps,
-			LogoutRequestUriBuilder logoutRequestUriBuilder) {
-		this.addonsClientProps = addonsClientProps;
-		this.clientRegistrationRepository = clientRegistrationRepository;
-		this.logoutRequestUriBuilder = logoutRequestUriBuilder;
-		this.loginOptions = clientProps.getRegistration().entrySet().stream().filter(e -> "authorization_code".equals(e.getValue().getAuthorizationGrantType()))
-				.map(e -> new LoginOptionDto(e.getValue().getProvider(), "%s/oauth2/authorization/%s".formatted(addonsClientProps.getClientUri(), e.getKey())))
-				.toList();
-	}
-
-	@GetMapping(path = "/login/options", produces = "application/json")
-	@Operation(operationId = "getLoginOptions")
-	public Mono<List<LoginOptionDto>> getLoginOptions(Authentication auth) throws URISyntaxException {
-		final boolean isAuthenticated = auth instanceof OAuth2AuthenticationToken;
-		return Mono.just(isAuthenticated ? List.of() : this.loginOptions);
-	}
-
-	@PutMapping(path = "/logout", produces = "application/json")
-	@Operation(operationId = "logout", responses = { @ApiResponse(responseCode = "204") })
-	public Mono<ResponseEntity<Void>> logout(ServerWebExchange exchange, Authentication authentication) {
-		final Mono<URI> uri;
-		if (authentication instanceof OAuth2AuthenticationToken oauth && oauth.getPrincipal() instanceof OidcUser oidcUser) {
-			uri = clientRegistrationRepository.findByRegistrationId(oauth.getAuthorizedClientRegistrationId()).map(clientRegistration -> {
-				final var uriString = logoutRequestUriBuilder
-						.getLogoutRequestUri(clientRegistration, oidcUser.getIdToken().getTokenValue(), addonsClientProps.getPostLogoutRedirectUri());
-				return StringUtils.hasText(uriString) ? URI.create(uriString) : addonsClientProps.getPostLogoutRedirectUri();
-			});
-		} else {
-			uri = Mono.just(addonsClientProps.getPostLogoutRedirectUri());
-		}
-		return uri.flatMap(logoutUri -> {
-			return securityContextRepository.save(exchange, null).thenReturn(logoutUri);
-		}).map(logoutUri -> {
-			return ResponseEntity.noContent().location(logoutUri).build();
-		});
-	}
-
-	static record LoginOptionDto(@NotEmpty String label, @NotEmpty String loginUri) {
-	}
-}
-```
-
 ### 1.3. Génération des Specs OpenAPI
 Le `springdoc-openapi-maven-plugin` est configuré dans le pom parent. Il est activé, pour chaque projet, avec le profile Maven `openapi`.
 
@@ -337,8 +273,10 @@ Voici les properties à surcharger avant de lancer les BFFs en dev:
 server.port=
 oauth2-client-id=
 oauth2-client-secret=
+spring.cloud.gateway.default-filters="DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin"
 ui-host=
-spring.cloud.gateway.default-filters=DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+ui-path=
+ui-filters=
 ```
 
 Pour les resource servers, seul le port est nécessaire (`7084` pour la greetings-api et `7085` pour celle des users)
@@ -379,7 +317,7 @@ const bffApiConf = new BFFConfiguration({
   basePath: process.env.NEXT_PUBLIC_BFF_BASE_PATH,
 });
 const usersApiConf = new UsersConfiguration({
-  basePath: process.env.NEXT_PUBLIC_BFF_BASE_PATH + "/api/v1",
+  basePath: process.env.NEXT_PUBLIC_BFF_BASE_PATH + "/bff/v1",
 });
 
 export class APIs {
@@ -926,7 +864,7 @@ exports.onExecutePostLogin = async (event, api) => {
   const namespace = 'https://c4-soft.com'
   const audience = 'openid-training.c4-soft.com'
   const tokenUri = 'https://dev-ch4mpy.eu.auth0.com/oauth/token'
-  const rolesUri = `https://web.back-office.openid-training.c4-soft.com/api/v1/users/${event.user.email}/roles`
+  const rolesUri = `https://web.back-office.openid-training.c4-soft.com/resource-server/v1/users/${event.user.email}/roles`
   
 
   //Request the access token

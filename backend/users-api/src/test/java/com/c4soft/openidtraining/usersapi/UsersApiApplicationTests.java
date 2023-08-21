@@ -12,9 +12,9 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenId;
-import com.c4_soft.springaddons.security.oauth2.test.mockmvc.AddonsWebmvcTestConf;
-import com.c4_soft.springaddons.security.oauth2.test.mockmvc.MockMvcSupport;
+import com.c4_soft.springaddons.security.oauth2.test.annotations.WithJwt;
+import com.c4_soft.springaddons.security.oauth2.test.webmvc.AddonsWebmvcTestConf;
+import com.c4_soft.springaddons.security.oauth2.test.webmvc.MockMvcSupport;
 import com.c4soft.openidtraining.usersapi.UsersApiApplication.UserDorlesDatabaseInitilizer;
 
 @SpringBootTest
@@ -25,7 +25,7 @@ class UsersApiApplicationTests {
 	MockMvcSupport api;
 
 	@Test
-	@OpenId({"USER_ROLES_EDITOR" })
+	@WithJwt("ch4mp.json")
 	void givenUserIsGrantedWithRequiredRoles_whenSetCh4mpRoles_thenRolesAreUpdated() throws Exception {
 		final var ch4mp = UserDorlesDatabaseInitilizer.InitialUserRoles.CH4MP;
 		
@@ -41,13 +41,6 @@ class UsersApiApplicationTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$", containsInAnyOrder("TRUC")));
 		// @formatter:on
-	}
-
-	@Test
-	@OpenId("SCOPE_roles:read")
-	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfUnknownUser_thenReturnEmptyCollection() throws Exception {
-		api.get("/users/%s/roles".formatted("machin@truc")).andExpect(status().isOk())
-		.andExpect(jsonPath("$[*]").isEmpty());
 	}
 
 }

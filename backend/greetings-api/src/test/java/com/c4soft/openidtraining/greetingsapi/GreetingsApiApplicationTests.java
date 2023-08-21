@@ -12,8 +12,8 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.c4_soft.springaddons.security.oauth2.test.mockmvc.AddonsWebmvcTestConf;
-import com.c4_soft.springaddons.security.oauth2.test.mockmvc.MockMvcSupport;
+import com.c4_soft.springaddons.security.oauth2.test.webmvc.AddonsWebmvcTestConf;
+import com.c4_soft.springaddons.security.oauth2.test.webmvc.MockMvcSupport;
 import com.c4soft.openidtraining.greetingsapi.GreetingsController.GreetingDto;
 
 @SpringBootTest

@@ -11,12 +11,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 
-import com.c4_soft.springaddons.security.oauth2.test.mockmvc.MockMvcSupport;
-import com.c4_soft.springaddons.security.oauth2.test.webmvc.jwt.AutoConfigureAddonsWebSecurity;
+import com.c4_soft.springaddons.security.oauth2.test.webmvc.AutoConfigureAddonsWebmvcResourceServerSecurity;
+import com.c4_soft.springaddons.security.oauth2.test.webmvc.MockMvcSupport;
 import com.c4soft.openidtraining.greetingsapi.GreetingsController.GreetingDto;
 
 @WebMvcTest(controllers = GreetingsController.class)
-@AutoConfigureAddonsWebSecurity
+@AutoConfigureAddonsWebmvcResourceServerSecurity
 @Import(SecurityConfig.class)
 class GreetingsControllerTest {
 	
@@ -30,7 +30,7 @@ class GreetingsControllerTest {
 
 	@Test
 	void givenUserIsAuthenticated_whenGetGreeting_thenReturnCustomizedMessage() throws Exception {
-		api.get("/greetings").andExpect(status().isOk()).andExpect(jsonPath("$.message", allOf(containsString("Ch4mp"), containsString("NICE"), containsString("AUTHOR"))));
+		api.get("/greetings").andExpect(status().isOk()).andExpect(jsonPath("$.message", allOf(containsString("ch4mp"), containsString("USER_ROLES_EDITOR"), containsString("AUTHOR"))));
 	}
 
 }

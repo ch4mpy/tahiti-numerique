@@ -11,26 +11,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 
-import com.c4_soft.springaddons.security.oauth2.OAuthentication;
-import com.c4_soft.springaddons.security.oauth2.OpenidClaimSet;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.Claims;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.NestedClaims;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenId;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.OpenIdClaims;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.StringClaim;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.parameterized.OpenIdAuthenticationSource;
-import com.c4_soft.springaddons.security.oauth2.test.annotations.parameterized.ParameterizedOpenId;
-import com.c4_soft.springaddons.security.oauth2.test.mockmvc.MockMvcSupport;
+import com.c4_soft.springaddons.security.oauth2.test.annotations.WithJwt;
+import com.c4_soft.springaddons.security.oauth2.test.annotations.WithMockAuthentication;
+import com.c4_soft.springaddons.security.oauth2.test.webmvc.MockMvcSupport;
 import com.c4soft.openidtraining.usersapi.EnableSpringDataWebSupportTestConf;
 import com.c4soft.openidtraining.usersapi.SecuredTest;
 import com.c4soft.openidtraining.usersapi.domain.UserRoles;
@@ -46,82 +40,78 @@ class UsersControllerTest {
 
 	@Autowired
 	MockMvcSupport api;
+	
+	@Autowired
+	WithJwt.AuthenticationFactory authFactory;
 
 	@BeforeEach
 	void setUp() {
-		when(rolesRepo.findById(UserRolesFixtures.CH4MP.getEmail())).thenReturn(Optional.of(UserRolesFixtures.CH4MP));
-		when(rolesRepo.findById("machin@truc")).thenReturn(Optional.empty());
+		when(rolesRepo.findById("ch4mp@c4-soft.com")).thenReturn(Optional.of(new UserRoles("ch4mp@c4-soft.com", Set.of("USER_ROLES_EDITOR", "AUTHOR"))));
 		when(rolesRepo.save(any(UserRoles.class))).thenAnswer(invocation -> (UserRoles) invocation.getArgument(0));
 	}
 
 	@Test
 	@WithAnonymousUser
 	void givenRequestIsAnonymous_whenGetUserRoles_thenUnauthorized() throws Exception {
-		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail())).andExpect(status().isUnauthorized());
+		api.get("/users/%s/roles".formatted("ch4mp@c4-soft.com")).andExpect(status().isUnauthorized());
+	}
+	
+	Stream<AbstractAuthenticationToken> allRolesRead() {
+		return authFactory.authenticationsFrom("ch4mp.json", "auth0-action.json");
 	}
 
-	@ParameterizedTest
-	@OpenIdAuthenticationSource({ @OpenId("SCOPE_roles:read"), @OpenId("USER_ROLES_EDITOR") })
-	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfExistingUser_thenRolesAreReturned(
-			@ParameterizedOpenId OAuthentication<OpenidClaimSet> auth) throws Exception {
+	@Test
+	@WithMockAuthentication("SCOPE_roles:read")
+	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfUnknownUser_thenReturnEmptyCollection() throws Exception {
 		// @formatter:off
-		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
+		api.get("/users/%s/roles".formatted("machin@truc"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$[*]", containsInAnyOrder(UserRolesFixtures.CH4MP.getRoles().toArray())));
+			.andExpect(jsonPath("$[*]").isEmpty());
 		// @formatter:on
-
 	}
 
 	@Test
-	@OpenId("SCOPE_roles:read")
-	void givenUserIsGrantedWithRolesReadScope_whenGetUserRolesOfUnknownUser_thenReturnEmptyCollection()
-			throws Exception {
-		api.get("/users/%s/roles".formatted("machin@truc")).andExpect(status().isOk())
-				.andExpect(jsonPath("$[*]").isEmpty());
-	}
-
-	@Test
-	@OpenId("SCOPE_roles:write")
+	@WithMockAuthentication("SCOPE_roles:write")
 	void givenUserIsNotGrantedWithRolesReadScope_whenGetUserRoles_thenForbidden() throws Exception {
-		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail())).andExpect(status().isForbidden());
+		api.get("/users/%s/roles".formatted("ch4mp@c4-soft.com")).andExpect(status().isForbidden());
 	}
 
 	@Test
 	@WithAnonymousUser
 	void givenRequestIsAnonymous_whenSetUserRoles_thenUnauthorized() throws Exception {
-		api.get("/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail())).andExpect(status().isUnauthorized());
+		api.get("/users/%s/roles".formatted("ch4mp@c4-soft.com")).andExpect(status().isUnauthorized());
 	}
 
 	@Test
-	@OpenId("USER_ROLES_EDITOR")
-	void givenUserIsGrantedWithUserRolesEditor_whenSetUserRoles_thenRolesAreUpdated() throws Exception {
-		api.put(List.of("MACHIN", "TRUC"), "/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
+	@WithJwt("ch4mp.json")
+	void givenUserIsCh4mp_whenSetUserRoles_thenRolesAreUpdated() throws Exception {
+		api.put(List.of("MACHIN", "TRUC"), "/users/%s/roles".formatted("ch4mp@c4-soft.com"))
 				.andExpect(status().isAccepted());
-		verify(rolesRepo).save(new UserRoles(UserRolesFixtures.CH4MP.getEmail(), Set.of("MACHIN", "TRUC")));
+		verify(rolesRepo).save(new UserRoles("ch4mp@c4-soft.com", Set.of("MACHIN", "TRUC")));
 	}
 
 	@Test
-	@OpenId("SCOPE_roles:read")
+	@WithMockAuthentication("SCOPE_roles:read")
 	void givenUserIsNotGrantedWithRolesReadScope_whenSetUserRoles_thenForbidden() throws Exception {
-		api.put(List.of("MACHIN", "TRUC"), "/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
+		api.put(List.of("MACHIN", "TRUC"), "/users/%s/roles".formatted("ch4mp@c4-soft.com"))
 				.andExpect(status().isForbidden());
 	}
 
 	@Test
-	@OpenId("USER_ROLES_EDITOR")
+	@WithMockAuthentication("USER_ROLES_EDITOR")
 	void givenUserIsGrantedWithUserRolesEditor_whenSetNullRoles_thenBadRequest() throws Exception {
-		api.put(null, "/users/%s/roles".formatted(UserRolesFixtures.CH4MP.getEmail()))
+		api.put(null, "/users/%s/roles".formatted("ch4mp@c4-soft.com"))
 				.andExpect(status().isBadRequest());
 	}
 
 	@Test
-	@OpenId("USER_ROLES_EDITOR")
+	@WithMockAuthentication("USER_ROLES_EDITOR")
 	void givenUserIsGrantedWithUserRolesEditor_whenSetRolesWithNullOrEmptyEmail_thenNotFound() throws Exception {
 		api.put(List.of("MACHIN", "TRUC"), "/users//roles").andExpect(status().isNotFound());
 	}
 
 	@Test
-	@OpenId("USER_ROLES_EDITOR")
+	@WithMockAuthentication("USER_ROLES_EDITOR")
 	void givenUserIsGrantedWithUserRolesEditor_whenSetRolesWithInvalidEmail_thenBadRequest() throws Exception {
 		api.put(List.of("MACHIN", "TRUC"), "/users/ch4mp/roles").andExpect(status().is4xxClientError());
 	}
@@ -140,23 +130,14 @@ class UsersControllerTest {
 
 	// @formatter:off
 	@Test
-	@OpenId(authorities = { "MACHIN","TRUC" },
-			claims = @OpenIdClaims(
-				otherClaims = @Claims(
-					nestedClaims = @NestedClaims(name = "https://c4-soft.com/user", stringClaims = {
-						@StringClaim(name = "name", value = "ch4mpy"),
-						@StringClaim(name = "email", value = "ch4mp@c4-soft.com")}))))
-	void givenRequestIsAuthenticated_whenGetMe_thenReturnData() throws Exception {
+	@WithJwt("ch4mp.json")
+	void givenRequestIsCh4mp_whenGetMe_thenReturnData() throws Exception {
 		api.get("/users/me")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.name", is("ch4mpy")))
+			.andExpect(jsonPath("$.name", is("ch4mp")))
 			.andExpect(jsonPath("$.email", is("ch4mp@c4-soft.com")))
-			.andExpect(jsonPath("$.roles", containsInAnyOrder("MACHIN", "TRUC")));
+			.andExpect(jsonPath("$.roles", containsInAnyOrder("USER_ROLES_EDITOR", "AUTHOR")));
 	}
 	// @formatter:on
-
-	static final class UserRolesFixtures {
-		public static final UserRoles CH4MP = new UserRoles("ch4mp@c4-soft.com", Set.of("NICE", "AUTHOR"));
-	}
 
 }

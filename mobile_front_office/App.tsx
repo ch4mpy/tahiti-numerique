@@ -30,7 +30,7 @@ import jwt_decode from 'jwt-decode';
 const config = {
   issuer: 'https://dev-ch4mpy.eu.auth0.com/',
   clientId: 'bCtRNTuQo43IQclmqxJ9QpYc6ppWeVDH',
-  redirectUrl: 'com.c4-soft.openid-training.front-office.mobile:/callback',
+  redirectUrl: 'com.c4-soft.openid-training.front-office.mobile.auth:/callback',
   scopes: ['openid profile email offline_access'],
 };
 

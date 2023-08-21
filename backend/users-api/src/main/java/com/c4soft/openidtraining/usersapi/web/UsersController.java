@@ -25,10 +25,7 @@ import com.c4_soft.springaddons.security.oauth2.UnmodifiableClaimSet;
 import com.c4soft.openidtraining.usersapi.domain.UserRoles;
 import com.c4soft.openidtraining.usersapi.domain.UserRolesRepository;
 
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotEmpty;
