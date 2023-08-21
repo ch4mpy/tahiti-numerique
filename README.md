@@ -16,8 +16,8 @@ Voici les URLs de "prod" :
 - https://web.back-office.openid-training.c4-soft.com/ui : application Next.js "front-office"
 - /bff/v1/greetings : accès à l'API `greetings` pour les frontends web & mobile (requêtes avec session)
 - /bff/v1/users : accès à l'API `users` pour les frontends web & mobile (requêtes avec session)
-- /api/v1/greetings : accès à l'API `greetings` pour les clients OAuth2 (requêtes avec access token)
-- /api/v1/users : accès à l'API `users` pour les clients OAuth2 (requêtes avec access token)
+- /resource-server/v1/greetings : accès à l'API `greetings` pour les clients OAuth2 (requêtes avec access token)
+- /resource-server/v1/users : accès à l'API `users` pour les clients OAuth2 (requêtes avec access token)
 - /login/options : endpoint exposant les URIs possibles pour initier l'authenticafication d'un utilisateur
 - /logout : endpoint pour terminer une session utilisateur
 
@@ -41,13 +41,13 @@ Cette API construit un message à partir d'informations contenues dans le `Secur
 Cette API a pour but de retourner les roles d'un utilisateur donné. 
 
 Voici les éléments de configuration à implémenter (utiliser la "Greetings API" ou [cet autre exemple](https://github.com/ch4mpy/spring-addons/tree/master/samples/webmvc-jwt-default)) :
-- ajouter [`com.c4-soft.springaddons:spring-addons-webmvc-jwt-resource-server`](https://central.sonatype.com/artifact/com.c4-soft.springaddons/spring-addons-webmvc-jwt-resource-server/6.1.11) aux dépendances
+- ajouter [`com.c4-soft.springaddons:spring-addons-starter-oidc`](https://repo1.maven.org/maven2/com/c4-soft/springaddons/spring-addons-starter-oidc/) aux dépendances
 - configuration `resource server` qui utilise les claims suivantes comme source pour les authorities Spring
   * `scope` en ajoutant le préfixe `SCOPE_`
   * `$['https://c4-soft.com/authorities']` sans préfixe
 - Auht0 comme issuer
 
-Il faut ensuite implémenter le endpoint qui expose en lecture les roles d'un utiisateur donné :
+Il faut ensuite implémenter le endpoint qui expose en lecture les roles d'un utilisateur donné :
 - exposer un endpoint REST GET pour le path `/v1/users/{email}/roles` qui retourne un DTO contenant une liste de roles
 - rendre le endpoint accessible uniquement aux requêtes authorisées avec les authorities `SCOPE_roles:read` ou `USER_ROLES_EDITOR`
 - jouer les tests unitaires pour valider votre l'implémentation.
@@ -121,20 +121,31 @@ spring:
   cloud:
     gateway:
       default-filters:
-      - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin Access-Control-Request-Method Access-Control-Request-Headers
       routes:
       - id: home
         uri: ${gateway-uri}
         predicates:
         - Path=/
         filters:
-        - RedirectTo=301,${gateway-uri}${ui-path}
+        - RedirectTo=301,${gateway-uri}/ui
+      - id: redirect-to-app
+        uri: ${ui-host}
+        predicates:
+        - Path=/app
+        filters:
+        - RedirectTo=301,${ui-host}/ui
       - id: ui
         uri: ${ui-host}
         predicates:
-        - Path=${ui-path}
-        filters: ${ui-filters}
-      - id: greetings-api
+        - Path=/ui/**
+      - id: greetings-resource-server
+        uri: ${greetings-api-uri}
+        predicates:
+        - Path=/resource-server/v1/greetings/**
+        filters:
+        - StripPrefix=2
+      - id: greetings-bff
         uri: ${greetings-api-uri}
         predicates:
         - Path=/bff/v1/greetings/**
@@ -142,7 +153,14 @@ spring:
         - TokenRelay=
         - SaveSession
         - StripPrefix=2
-      - id: users-api
+      - id: users-resource-server
+        uri: ${users-api-uri}
+        predicates:
+        - Path=/resource-server/v1/users/**
+        filters:
+        - StripPrefix=2
+        - RemoveRequestHeader=Origin
+      - id: users-bff
         uri: ${users-api-uri}
         predicates:
         - Path=/bff/v1/users/**
@@ -158,55 +176,50 @@ spring:
 com:
   c4-soft:
     springaddons:
-      security:
+      oidc:
         # Global OAuth2 configuration
-        issuers:
-        - location: ${oauth2-issuer}
+        ops:
+        - iss: ${oauth2-issuer}
           username-claim: $['https://c4-soft.com/user']['name']
           authorities:
           - path: $['https://c4-soft.com/authorities']
           - path: $.scope
             prefix: SCOPE_
-        # OAuth2 client configuration
         client:
+          cors:
           client-uri: ${gateway-uri}
           security-matchers:
           - /login/**
           - /oauth2/**
           - /
           - /logout
-          - /api/**
-          - ${ui-path}/**
+          - /bff/**
           permit-all:
           - /login/**
           - /oauth2/**
           - /
-          - /api/**
-          - ${ui-path}/**
+          - /bff/**
           csrf: cookie-accessible-from-js
-          post-login-redirect-path: ${ui-path}
-          post-logout-redirect-path: ${ui-path}
-          back-channel-logout-enabled: true
+          post-login-redirect-path: /ui
+          post-logout-redirect-path: /ui
           oauth2-logout:
-          - client-registration-id: authorization-code
-            uri: ${oauth2-issuer}v2/logout
-            client-id-request-param: client_id
-            post-logout-uri-request-param: returnTo
+            authorization-code:
+              uri: ${oauth2-issuer}v2/logout
+              client-id-request-param: client_id
+              post-logout-uri-request-param: returnTo
           authorization-request-params:
             authorization-code:
             - name: audience
               value: openid-training.c4-soft.com
         # OAuth2 resource server configuration
-        csrf: disable
-        statless-sessions: true
-        cors:
-        - path: /api/**
-          allowed-origins: ${allowed-origins}
-        permit-all:
-        - /v3/api-docs/**
-        - /actuator/health/readiness
-        - /actuator/health/liveness
-        - /.well-known/acme-challenge/**
+        resourceserver:
+          permit-all:
+          - /ui/**
+          - /resource-server/**
+          - /v3/api-docs/**
+          - /actuator/health/readiness
+          - /actuator/health/liveness
+          - /.well-known/acme-challenge/**
             
 management:
   endpoint:
@@ -304,7 +317,7 @@ const bffApiConf = new BFFConfiguration({
   basePath: process.env.NEXT_PUBLIC_BFF_BASE_PATH,
 });
 const usersApiConf = new UsersConfiguration({
-  basePath: process.env.NEXT_PUBLIC_BFF_BASE_PATH + "/api/v1",
+  basePath: process.env.NEXT_PUBLIC_BFF_BASE_PATH + "/bff/v1",
 });
 
 export class APIs {
@@ -851,7 +864,7 @@ exports.onExecutePostLogin = async (event, api) => {
   const namespace = 'https://c4-soft.com'
   const audience = 'openid-training.c4-soft.com'
   const tokenUri = 'https://dev-ch4mpy.eu.auth0.com/oauth/token'
-  const rolesUri = `https://web.back-office.openid-training.c4-soft.com/api/v1/users/${event.user.email}/roles`
+  const rolesUri = `https://web.back-office.openid-training.c4-soft.com/resource-server/v1/users/${event.user.email}/roles`
   
 
   //Request the access token
